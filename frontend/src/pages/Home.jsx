@@ -40,6 +40,7 @@ function savePrefs(p) {
 
 export default function Home({ onOpenBuilder }) {
   const [upload, setUpload] = useState(EMPTY_UPLOAD);
+  const [sourcePreviewUrl, setSourcePreviewUrl] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
   const [templates, setTemplates] = useState([]);
   const [job, setJob] = useState(null);
@@ -144,8 +145,11 @@ export default function Home({ onOpenBuilder }) {
     [stopPolling]
   );
 
+  useEffect(() => () => { if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl); }, [sourcePreviewUrl]);
+
   // --- upload
   const handleFile = async (file) => {
+    setSourcePreviewUrl(URL.createObjectURL(file));
     setApiError("");
     setJob(null);
     setUpload({ ...EMPTY_UPLOAD, status: "uploading", fileName: file.name });
@@ -308,6 +312,7 @@ export default function Home({ onOpenBuilder }) {
             <UploadZone state={upload} onFile={handleFile} onClear={() => {
               if (upload.info) deleteUpload(upload.info.upload_id).catch(() => {});
               setUpload(EMPTY_UPLOAD);
+              setSourcePreviewUrl("");
               setJob(null);
             }} disabled={busy} />
           </Field>
@@ -347,13 +352,6 @@ export default function Home({ onOpenBuilder }) {
                 </Field>
                 <Field label="Video Fit">
                   <FitToggle value={form.fit} onChange={set("fit")} disabled={busy} />
-                </Field>
-                <Field label="Struktur Template" hint="Layout vertikal tetap 15% / 70% / 15%. Background mengikuti template yang dipilih.">
-                  <div className="rounded-lg border border-ink-600 bg-ink-900 px-3 py-3 text-sm text-stone-200">
-                    <div className="flex justify-between"><span>Top section</span><b>15% · 288 px</b></div>
-                    <div className="my-2 flex justify-between rounded-md bg-emerald-500/10 px-2 py-2"><span>Center · Video utama</span><b>70% · 1.344 px</b></div>
-                    <div className="flex justify-between"><span>Bottom section</span><b>15% · 288 px</b></div>
-                  </div>
                 </Field>
               </div>
 
@@ -494,7 +492,7 @@ export default function Home({ onOpenBuilder }) {
 
         {/* KANAN: preview */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} retentionMinutes={retention} onDeleted={() => { stopPolling(); setJob(null); }} />
+          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} sourcePreviewUrl={mode === "clip" ? sourcePreviewUrl : ""} fit={form.fit} videoArea={templates.find((t) => t.name === form.template)?.video_area} retentionMinutes={retention} outputWidth={form.outputWidth} outputHeight={form.outputHeight} onDeleted={() => { stopPolling(); setJob(null); }} />
           {job?.status === "completed" && job.caption_status !== "off" && (
             <CaptionPanel jobId={job.job_id} arc={form.arc.trim()} notes={form.notes.trim()} />
           )}
