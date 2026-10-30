@@ -492,7 +492,7 @@ export default function Home({ onOpenBuilder }) {
 
         {/* KANAN: preview */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} sourcePreviewUrl={mode === "clip" ? sourcePreviewUrl : ""} fit={form.fit} videoArea={templates.find((t) => t.name === form.template)?.video_area} retentionMinutes={retention} outputWidth={form.outputWidth} outputHeight={form.outputHeight} onDeleted={() => { stopPolling(); setJob(null); }} />
+          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} sourcePreviewUrl={mode === "clip" ? sourcePreviewUrl : ""} fit={form.fit} videoArea={templates.find((t) => t.name === form.template)?.video_area} templateWidth={templates.find((t) => t.name === form.template)?.width} templateHeight={templates.find((t) => t.name === form.template)?.height} startSeconds={parseTimecode(form.start) ?? 0} endSeconds={parseTimecode(form.end)} retentionMinutes={retention} outputWidth={form.outputWidth} outputHeight={form.outputHeight} onDeleted={() => { stopPolling(); setJob(null); }} />
           {job?.status === "completed" && job.caption_status !== "off" && (
             <CaptionPanel jobId={job.job_id} arc={form.arc.trim()} notes={form.notes.trim()} />
           )}
