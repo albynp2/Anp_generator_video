@@ -4,8 +4,8 @@ import ProgressBar from "./ProgressBar.jsx";
 import { deleteJob, downloadUrl, previewUrl, templatePreviewUrl } from "../services/api.js";
 
 export default function PreviewPanel({
-  job, template, sourcePreviewUrl, fit = "cover", videoArea,
-  retentionMinutes, outputWidth = 1080, outputHeight = 1920, onDeleted
+  job, template, sourcePreviewUrl, fit = "cover", videoArea, templateWidth = 1080, templateHeight = 1920,
+  startSeconds = 0, endSeconds, retentionMinutes, outputWidth = 1080, outputHeight = 1920, onDeleted
 }) {
   const [deleting, setDeleting] = useState(false);
   const status = job?.status;
@@ -13,10 +13,10 @@ export default function PreviewPanel({
   const done = status === "completed";
   const area = videoArea || { x: 0, y: outputHeight * 0.15, width: outputWidth, height: outputHeight * 0.7 };
   const areaStyle = {
-    left: `${(area.x / outputWidth) * 100}%`,
-    top: `${(area.y / outputHeight) * 100}%`,
-    width: `${(area.width / outputWidth) * 100}%`,
-    height: `${(area.height / outputHeight) * 100}%`,
+    left: `${(area.x / templateWidth) * 100}%`,
+    top: `${(area.y / templateHeight) * 100}%`,
+    width: `${(area.width / templateWidth) * 100}%`,
+    height: `${(area.height / templateHeight) * 100}%`,
   };
 
   const remove = async () => {
@@ -47,7 +47,8 @@ export default function PreviewPanel({
                 muted
                 playsInline
                 autoPlay
-                loop
+                onLoadedMetadata={(event) => { event.currentTarget.currentTime = Math.max(0, startSeconds); }}
+                onTimeUpdate={(event) => { if (endSeconds > startSeconds && event.currentTarget.currentTime >= endSeconds) event.currentTarget.currentTime = Math.max(0, startSeconds); }}
               />
             )}
             {busy && <div className="absolute inset-0 z-10 grid place-items-center bg-black/20"><Flame className="h-10 w-10 animate-pulse text-ember-400" /></div>}
