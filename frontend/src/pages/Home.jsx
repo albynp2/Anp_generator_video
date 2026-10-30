@@ -348,16 +348,12 @@ export default function Home({ onOpenBuilder }) {
                 <Field label="Video Fit">
                   <FitToggle value={form.fit} onChange={set("fit")} disabled={busy} />
                 </Field>
-                <Field label="Layout Video" hint="Pilih apakah video memenuhi seluruh layar atau mengikuti area video pada desain template.">
-                  <select className="input" value={form.videoLayout} disabled={busy}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setForm((f) => ({ ...f, videoLayout: value, fit: value === "full_screen" ? "contain" : f.fit }));
-                    }}>
-                    <option value="template_background">Template Background — video di area desain</option>
-                    <option value="full_screen">Full Screen Video — memenuhi seluruh layar</option>
-                  </select>
-                  {form.videoLayout === "full_screen" && <p className="mt-1 text-xs text-stone-400">Mode Contain memakai latar video blur agar konten landscape tetap utuh tanpa bar hitam. Mode Cover memenuhi layar dengan crop.</p>}
+                <Field label="Struktur Template" hint="Layout vertikal tetap 15% / 70% / 15%. Background mengikuti template yang dipilih.">
+                  <div className="rounded-lg border border-ink-600 bg-ink-900 px-3 py-3 text-sm text-stone-200">
+                    <div className="flex justify-between"><span>Top section</span><b>15% · 288 px</b></div>
+                    <div className="my-2 flex justify-between rounded-md bg-emerald-500/10 px-2 py-2"><span>Center · Video utama</span><b>70% · 1.344 px</b></div>
+                    <div className="flex justify-between"><span>Bottom section</span><b>15% · 288 px</b></div>
+                  </div>
                 </Field>
               </div>
 
