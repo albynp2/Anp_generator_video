@@ -82,5 +82,5 @@ def make_audio_only_filename(original_name: str) -> str:
 def make_download_filename(episode: str, title: str, max_words: int) -> str:
     """Nama file generik tanpa kode serial atau franchise tertentu."""
     main = slugify(episode, max_words=3, max_len=28)
-    headline = slugify(title, max_words=max_words, max_len=36)
+    headline = slugify(title, max_words=max(8, max_words), max_len=48)
     return f"{main}-{headline}.mp4" if headline else f"{main}.mp4"
