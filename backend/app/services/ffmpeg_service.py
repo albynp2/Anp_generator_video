@@ -52,6 +52,7 @@ class RenderSpec:
     fit: str                 # "cover" | "contain"
     has_audio: bool
     video_layout: str = "template_background"
+    background_mode: str = "blur"  # "blur" untuk template default, "image" untuk template builder
     source_crop: tuple = ()  # optional (w,h,x,y) crop of embedded letterbox bars
     mute_ranges: tuple = ()  # ((start_rel, end_rel), ...) relatif ke awal clip (0 = awal clip)
     music_path: object = None  # Path | None — musik pengganti untuk mute_ranges
@@ -246,77 +247,46 @@ def build_command(spec: RenderSpec) -> list:
     fit_h = max(2, int(ah) - (int(ah) % 2))
     crop = spec.source_crop
     crop_filter = f"crop={crop[0]}:{crop[1]}:{crop[2]}:{crop[3]}," if crop else ""
-    template_blur = spec.video_layout == "template_background"
-    blur_fill = spec.video_layout == "full_screen" and spec.fit == "contain"
-    if template_blur:
-        # The template PNG is generated with a transparent window over video_area.
-        # Blur fills the complete output canvas; the foreground video is then fitted
-        # independently into the template's video viewport.
-        bg_w = max(2, int(cw) - (int(cw) % 2))
-        bg_h = max(2, int(ch) - (int(ch) % 2))
-        background_filter = (
-            f"[1:v]setpts=PTS-STARTPTS,fps={fps},setsar=1,"
-            f"scale={bg_w}:{bg_h}:force_original_aspect_ratio=increase:"
-            f"force_divisible_by=2:flags=lanczos,crop={bg_w}:{bg_h},"
-            f"boxblur=24:12,eq=brightness=-0.18:saturation=0.82[blurred];"
-            f"[blurred][0:v]overlay=0:0:format=auto[base]"
-        )
-        if spec.fit == "contain":
-            foreground_filter = (
-                f"[1:v]setpts=PTS-STARTPTS,fps={fps},{crop_filter}setsar=1,"
-                f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease:"
-                f"force_divisible_by=2:flags=lanczos,setsar=1,format=yuv420p[vid]"
-            )
-        else:
-            foreground_filter = (
-                f"[1:v]setpts=PTS-STARTPTS,fps={fps},{crop_filter}setsar=1,"
-                f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=increase:"
-                f"force_divisible_by=2:flags=lanczos,crop={fit_w}:{fit_h},"
-                f"setsar=1,format=yuv420p[vid]"
-            )
-        filters_video = background_filter + ";" + foreground_filter
-    elif blur_fill:
+    background_w = max(2, int(cw) - (int(cw) % 2))
+    background_h = max(2, int(ch) - (int(ch) % 2))
+
+    # Background layer: default template uses a full-canvas blurred copy of
+    # the source video; custom templates use the uploaded image as-is.
+    if spec.background_mode == "blur":
         filters_video = (
             f"[1:v]setpts=PTS-STARTPTS,fps={fps},setsar=1,split[bgsrc][fgsrc];"
-            f"[bgsrc]{crop_filter}scale={fit_w}:{fit_h}:force_original_aspect_ratio=increase:"
-            f"force_divisible_by=2:flags=lanczos,crop={fit_w}:{fit_h},"
-            f"boxblur=24:12,eq=brightness=-0.18:saturation=0.82[blurred];"
-            f"[fgsrc]{crop_filter}scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease:"
-            f"force_divisible_by=2:flags=lanczos[foreground];"
-            f"[blurred][foreground]overlay=(W-w)/2:(H-h)/2:shortest=1,setsar=1,format=yuv420p[vid]"
+            f"[bgsrc]scale={background_w}:{background_h}:force_original_aspect_ratio=increase:"
+            f"force_divisible_by=2:flags=lanczos,crop={background_w}:{background_h},"
+            f"boxblur=24:12,eq=brightness=-0.18:saturation=0.82[base];"
+            f"[fgsrc]setpts=PTS-STARTPTS,fps={fps},{crop_filter}setsar=1,"
+            + (
+                f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease:"
+                f"force_divisible_by=2:flags=lanczos[vid]"
+                if spec.fit == "contain"
+                else f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=increase:"
+                f"force_divisible_by=2:flags=lanczos,crop={fit_w}:{fit_h}[vid]"
+            )
         )
-    elif spec.fit == "contain":
-        fit_filter = (
-            f"{crop_filter}setsar=1,"
-            f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease:"
-            f"force_divisible_by=2:flags=lanczos,"
-            f"pad=w='max({fit_w},iw)':h='max({fit_h},ih)':"
-            f"x=(ow-iw)/2:y=(oh-ih)/2:color=black,crop={fit_w}:{fit_h}"
-        )
-        filters_video = f"[1:v]setpts=PTS-STARTPTS,fps={fps},{fit_filter},setsar=1,format=yuv420p[vid]"
     else:
-        fit_filter = (
-            f"{crop_filter}setsar=1,"
-            f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=increase:"
-            f"force_divisible_by=2:flags=lanczos,crop={fit_w}:{fit_h}"
+        filters_video = (
+            f"[0:v]scale={background_w}:{background_h}:force_original_aspect_ratio=increase:"
+            f"force_divisible_by=2:flags=lanczos,crop={background_w}:{background_h},setsar=1[base];"
+            f"[1:v]setpts=PTS-STARTPTS,fps={fps},{crop_filter}setsar=1,"
+            + (
+                f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease:"
+                f"force_divisible_by=2:flags=lanczos[vid]"
+                if spec.fit == "contain"
+                else f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=increase:"
+                f"force_divisible_by=2:flags=lanczos,crop={fit_w}:{fit_h}[vid]"
+            )
         )
-        filters_video = f"[1:v]setpts=PTS-STARTPTS,fps={fps},{fit_filter},setsar=1,format=yuv420p[vid]"
 
-    if template_blur:
-        filters = [
-            filters_video,
-            f"[base][vid]overlay={ax}:{ay}:shortest=1[a]",
-            f"[a][2:v]overlay={spec.episode_pos[0]}:{spec.episode_pos[1]}:format=auto[b]",
-            f"[b][3:v]overlay={spec.title_pos[0]}:{spec.title_pos[1]}:format=auto,format=yuv420p[vout]",
-        ]
-    else:
-        filters = [
-            f"[0:v]setsar=1,format=yuv420p[bg]",
-            filters_video,
-            f"[bg][vid]overlay={ax}:{ay}:shortest=1[a]",
-            f"[a][2:v]overlay={spec.episode_pos[0]}:{spec.episode_pos[1]}:format=auto[b]",
-            f"[b][3:v]overlay={spec.title_pos[0]}:{spec.title_pos[1]}:format=auto,format=yuv420p[vout]",
-        ]
+    filters = [
+        filters_video,
+        f"[base][vid]overlay=x={ax}+({aw}-w)/2:y={ay}+({ah}-h)/2:shortest=1[a]",
+        f"[a][2:v]overlay={spec.episode_pos[0]}:{spec.episode_pos[1]}:format=auto[b]",
+        f"[b][3:v]overlay={spec.title_pos[0]}:{spec.title_pos[1]}:format=auto,format=yuv420p[vout]",
+    ]
     maps = ["-map", "[vout]"]
     audio_inputs: list = []  # entri -i tambahan untuk musik/anullsrc (ditambahkan setelah 4 input utama)
 
