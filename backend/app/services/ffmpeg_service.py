@@ -246,8 +246,36 @@ def build_command(spec: RenderSpec) -> list:
     fit_h = max(2, int(ah) - (int(ah) % 2))
     crop = spec.source_crop
     crop_filter = f"crop={crop[0]}:{crop[1]}:{crop[2]}:{crop[3]}," if crop else ""
+    template_blur = spec.video_layout == "template_background"
     blur_fill = spec.video_layout == "full_screen" and spec.fit == "contain"
-    if blur_fill:
+    if template_blur:
+        # The template PNG is generated with a transparent window over video_area.
+        # Blur fills the complete output canvas; the foreground video is then fitted
+        # independently into the template's video viewport.
+        bg_w = max(2, int(cw) - (int(cw) % 2))
+        bg_h = max(2, int(ch) - (int(ch) % 2))
+        background_filter = (
+            f"[1:v]setpts=PTS-STARTPTS,fps={fps},setsar=1,"
+            f"scale={bg_w}:{bg_h}:force_original_aspect_ratio=increase:"
+            f"force_divisible_by=2:flags=lanczos,crop={bg_w}:{bg_h},"
+            f"boxblur=24:12,eq=brightness=-0.18:saturation=0.82[blurred];"
+            f"[blurred][0:v]overlay=0:0:format=auto[base]"
+        )
+        if spec.fit == "contain":
+            foreground_filter = (
+                f"[1:v]setpts=PTS-STARTPTS,fps={fps},{crop_filter}setsar=1,"
+                f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease:"
+                f"force_divisible_by=2:flags=lanczos,setsar=1,format=yuv420p[vid]"
+            )
+        else:
+            foreground_filter = (
+                f"[1:v]setpts=PTS-STARTPTS,fps={fps},{crop_filter}setsar=1,"
+                f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=increase:"
+                f"force_divisible_by=2:flags=lanczos,crop={fit_w}:{fit_h},"
+                f"setsar=1,format=yuv420p[vid]"
+            )
+        filters_video = background_filter + ";" + foreground_filter
+    elif blur_fill:
         filters_video = (
             f"[1:v]setpts=PTS-STARTPTS,fps={fps},setsar=1,split[bgsrc][fgsrc];"
             f"[bgsrc]{crop_filter}scale={fit_w}:{fit_h}:force_original_aspect_ratio=increase:"
@@ -274,13 +302,21 @@ def build_command(spec: RenderSpec) -> list:
         )
         filters_video = f"[1:v]setpts=PTS-STARTPTS,fps={fps},{fit_filter},setsar=1,format=yuv420p[vid]"
 
-    filters = [
-        f"[0:v]setsar=1,format=yuv420p[bg]",
-        filters_video,
-        f"[bg][vid]overlay={ax}:{ay}:shortest=1[a]",
-        f"[a][2:v]overlay={spec.episode_pos[0]}:{spec.episode_pos[1]}:format=auto[b]",
-        f"[b][3:v]overlay={spec.title_pos[0]}:{spec.title_pos[1]}:format=auto,format=yuv420p[vout]",
-    ]
+    if template_blur:
+        filters = [
+            filters_video,
+            f"[base][vid]overlay={ax}:{ay}:shortest=1[a]",
+            f"[a][2:v]overlay={spec.episode_pos[0]}:{spec.episode_pos[1]}:format=auto[b]",
+            f"[b][3:v]overlay={spec.title_pos[0]}:{spec.title_pos[1]}:format=auto,format=yuv420p[vout]",
+        ]
+    else:
+        filters = [
+            f"[0:v]setsar=1,format=yuv420p[bg]",
+            filters_video,
+            f"[bg][vid]overlay={ax}:{ay}:shortest=1[a]",
+            f"[a][2:v]overlay={spec.episode_pos[0]}:{spec.episode_pos[1]}:format=auto[b]",
+            f"[b][3:v]overlay={spec.title_pos[0]}:{spec.title_pos[1]}:format=auto,format=yuv420p[vout]",
+        ]
     maps = ["-map", "[vout]"]
     audio_inputs: list = []  # entri -i tambahan untuk musik/anullsrc (ditambahkan setelah 4 input utama)
 
