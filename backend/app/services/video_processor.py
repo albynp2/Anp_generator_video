@@ -307,9 +307,18 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
     progress(2, "Menyiapkan template")
     template_png = job_dir / "template.png"
     with Image.open(tpl.image_path) as im:
-        im = im.convert("RGB").resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
-        canvas_image = Image.new("RGB", canvas, (0, 0, 0))
-        canvas_image.paste(im, (offset_x, offset_y))
+        im = im.convert("RGBA").resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
+        canvas_image = Image.new("RGBA", canvas, (0, 0, 0, 255))
+        canvas_image.alpha_composite(im, (offset_x, offset_y))
+        if clip.video_layout == "template_background":
+            # Punch a transparent viewport so the blurred source-video layer
+            # can show through. Foreground video is composited above this layer.
+            vx, vy, vw, vh = video_area
+            from PIL import ImageDraw
+            ImageDraw.Draw(canvas_image).rectangle(
+                (vx, vy, vx + vw - 1, vy + vh - 1),
+                fill=(0, 0, 0, 0),
+            )
         canvas_image.save(template_png)
 
     progress(4, "Membuat teks utama")
