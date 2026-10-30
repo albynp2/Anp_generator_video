@@ -257,8 +257,7 @@ def build_command(spec: RenderSpec) -> list:
             f"[1:v]setpts=PTS-STARTPTS,fps={fps},setsar=1,split[bgsrc][fgsrc];"
             f"[bgsrc]scale={background_w}:{background_h}:force_original_aspect_ratio=increase:"
             f"force_divisible_by=2:flags=lanczos,crop={background_w}:{background_h},"
-            f"boxblur=24:12,eq=brightness=-0.18:saturation=0.82[blurred];"
-            f"[blurred][0:v]overlay=0:0:format=auto[base];"
+            f"boxblur=24:12,eq=brightness=-0.18:saturation=0.82[base];"
             f"[fgsrc]setpts=PTS-STARTPTS,fps={fps},{crop_filter}setsar=1,"
             + (
                 f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease:"
