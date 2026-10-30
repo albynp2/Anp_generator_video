@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>ANP-CLIPPER — Template Builder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0e0906;color:#e7e2dc;font:14px/1.5 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif}
+  header{padding:16px 20px;border-bottom:1px solid #2b1a11;display:flex;align-items:center;gap:10px}
+  header h1{font-size:16px;margin:0;letter-spacing:.02em}
+  header h1 b{background:linear-gradient(90deg,#ff6a00,#ffc94d);-webkit-background-clip:text;background-clip:text;color:transparent}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:0;min-height:calc(100vh - 57px)}
+  .stage{padding:20px;display:flex;flex-direction:column;gap:12px;align-items:center;overflow:auto}
+  .stage-controls{display:flex;gap:8px;flex-wrap:wrap;width:100%;max-width:640px}
+  .canvas-wrap{position:relative;border:1px solid #2b1a11;border-radius:12px;overflow:hidden;background:#080504}
+  canvas{display:block;max-width:100%;cursor:crosshair}
+  aside{padding:20px;border-left:1px solid #2b1a11;overflow:auto}
+  section{margin-bottom:22px}
+  section h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#ffc94d;margin:0 0 10px}
+  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#c9bdae;margin:10px 0 4px}
+  input[type=text],input[type=number]{width:100%;box-sizing:border-box;background:#150d09;border:1px solid #2b1a11;border-radius:8px;
+    padding:8px 10px;color:#e7e2dc;font:inherit}
+  input[type=file]{width:100%}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  button{cursor:pointer;border-radius:10px;border:1px solid #2b1a11;background:#150d09;color:#e7e2dc;padding:8px 12px;font:inherit;font-weight:600}
+  button.primary{background:linear-gradient(90deg,#e14d00,#f5a91c);border:none;color:#0e0906}
+  button.area-btn{width:100%;text-align:left;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  button.area-btn.active{outline:2px solid #ff8a2a}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .hint{font-size:12px;color:#8a7c6c}
+  .status{font-size:12px;padding:8px 10px;border-radius:8px;background:#1f130d;border:1px solid #2b1a11}
+  .status.ok{border-color:#2f6f4f;color:#8fe3b3}
+  .status.warn{border-color:#7a5a1c;color:#ffd27a}
+  textarea{width:100%;height:220px;box-sizing:border-box;background:#080504;color:#c9e29b;border:1px solid #2b1a11;
+    border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace}
+  footer{padding:14px 20px;border-top:1px solid #2b1a11;font-size:12px;color:#8a7c6c}
+  a{color:#ffc94d}
+</style>
+</head>
+<body>
+<header>
+  <h1><b>ANP-CLIPPER</b> — Template Builder (gambar kotak, tanpa edit JSON)</h1>
+</header>
+<main>
+  <div class="stage">
+    <div class="stage-controls">
+      <label style="margin:0">1. Pilih gambar template (PNG hasil desain Anda)
+        <input type="file" id="imgInput" accept="image/png,image/jpeg" />
+      </label>
+    </div>
+    <div class="canvas-wrap"><canvas id="cv" width="640" height="960"></canvas></div>
+    <p class="hint" id="dims">Belum ada gambar dimuat.</p>
+  </div>
+  <aside>
+    <section>
+      <h2>2. Gambar area (klik lalu tarik di atas gambar)</h2>
+      <button class="area-btn active" data-area="video"><span class="swatch" style="background:#ff6a00"></span> Video Area</button>
+      <button class="area-btn" data-area="episode"><span class="swatch" style="background:#22c55e"></span> Episode Area (teks "teks utama")</button>
+      <button class="area-btn" data-area="title"><span class="swatch" style="background:#3b82f6"></span> Title Area (teks judul)</button>
+      <p class="hint">Klik salah satu tombol lalu tarik kotak di atas gambar. Menimpa gambar lama untuk area itu.</p>
+      <div id="areaStatus"></div>
+    </section>
+
+    <section>
+      <h2>3. Info Template</h2>
+      <label>Nama file (huruf kecil, - / _ saja)</label>
+      <input type="text" id="tplName" value="template-baru" />
+      <label>Label yang tampil di dropdown</label>
+      <input type="text" id="tplLabel" value="Template Baru" />
+      <label>Format teks utama</label>
+      <input type="text" id="epFormat" placeholder="Nama episode {number}" value="" />
+    </section>
+
+    <section>
+      <h2>4. Gaya Teks (boleh dipakai default)</h2>
+      <div class="row">
+        <div><label>Ukuran font teks utama</label><input type="number" id="epSize" value="56"></div>
+        <div><label>Ukuran font Title</label><input type="number" id="tiSize" value="62"></div>
+      </div>
+      <div class="row">
+        <div><label>Kecerahan efek teks utama</label><input type="number" id="epBright" value="0.68" step="0.05" min="0" max="1"></div>
+        <div><label>Kecerahan api Title</label><input type="number" id="tiBright" value="0.68" step="0.05" min="0" max="1"></div>
+      </div>
+      <p class="hint">Font memakai font default aplikasi (Sansita ExtraBold Italic + fallback) — bisa diganti nanti dengan <code>tools/font_lab.py --apply</code>, tidak perlu edit di sini.</p>
+    </section>
+
+    <section>
+      <h2>5. Hasil</h2>
+      <button class="primary" id="genBtn" style="width:100%">Buat JSON + Download</button>
+      <p class="hint" id="genHint"></p>
+      <textarea id="out" readonly placeholder="JSON akan muncul di sini setelah klik tombol di atas…"></textarea>
+    </section>
+
+    <section>
+      <h2>6. Pasang ke aplikasi</h2>
+      <p class="hint">
+        1) Simpan gambar template sebagai <code>assets/templates/&lt;nama&gt;.png</code><br/>
+        2) Simpan file JSON yang di-download sebagai <code>config/templates/&lt;nama&gt;.json</code><br/>
+        3) Refresh halaman ANP-CLIPPER — template baru langsung muncul di dropdown <b>Template</b>, tanpa restart backend.
+      </p>
+    </section>
+  </aside>
+</main>
+<footer>Alat ini 100% jalan di browser Anda sendiri (tidak upload ke mana-mana) — cukup buka file ini dua kali klik.</footer>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let img = null, natW = 0, natH = 0, scale = 1;
+let areas = { video: null, episode: null, title: null };
+const colors = { video: '#ff6a00', episode: '#22c55e', title: '#3b82f6' };
+let activeArea = 'video';
+let dragging = false, startX = 0, startY = 0;
+
+document.querySelectorAll('.area-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.area-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeArea = btn.dataset.area;
+  });
+});
+
+document.getElementById('imgInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const image = new Image();
+    image.onload = () => {
+      img = image; natW = image.naturalWidth; natH = image.naturalHeight;
+      const maxW = 640, maxH = 900;
+      scale = Math.min(maxW / natW, maxH / natH, 1);
+      cv.width = Math.round(natW * scale);
+      cv.height = Math.round(natH * scale);
+      areas = { video: null, episode: null, title: null };
+      document.getElementById('dims').textContent = `Ukuran gambar: ${natW} × ${natH} px (ini juga jadi ukuran canvas output).`;
+      draw();
+    };
+    image.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function toCanvasXY(evt) {
+  const r = cv.getBoundingClientRect();
+  const x = ((evt.touches ? evt.touches[0].clientX : evt.clientX) - r.left) * (cv.width / r.width);
+  const y = ((evt.touches ? evt.touches[0].clientY : evt.clientY) - r.top) * (cv.height / r.height);
+  return [Math.max(0, Math.min(cv.width, x)), Math.max(0, Math.min(cv.height, y))];
+}
+
+function startDrag(evt) {
+  if (!img) return;
+  evt.preventDefault();
+  dragging = true;
+  [startX, startY] = toCanvasXY(evt);
+}
+function moveDrag(evt) {
+  if (!dragging) return;
+  evt.preventDefault();
+  const [x, y] = toCanvasXY(evt);
+  const rect = normRect(startX, startY, x, y);
+  areas[activeArea] = rect;
+  draw();
+}
+function endDrag() { dragging = false; updateAreaStatus(); }
+
+function normRect(x0, y0, x1, y1) {
+  const cx0 = Math.min(x0, x1), cy0 = Math.min(y0, y1);
+  const cx1 = Math.max(x0, x1), cy1 = Math.max(y0, y1);
+  return {
+    x: Math.round(cx0 / scale), y: Math.round(cy0 / scale),
+    width: Math.max(2, Math.round((cx1 - cx0) / scale)),
+    height: Math.max(2, Math.round((cy1 - cy0) / scale)),
+  };
+}
+
+cv.addEventListener('mousedown', startDrag);
+cv.addEventListener('mousemove', moveDrag);
+window.addEventListener('mouseup', endDrag);
+cv.addEventListener('touchstart', startDrag, { passive: false });
+cv.addEventListener('touchmove', moveDrag, { passive: false });
+window.addEventListener('touchend', endDrag);
+
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (img) ctx.drawImage(img, 0, 0, cv.width, cv.height);
+  for (const key of ['video', 'episode', 'title']) {
+    const a = areas[key];
+    if (!a) continue;
+    ctx.strokeStyle = colors[key];
+    ctx.lineWidth = key === activeArea ? 3 : 2;
+    ctx.setLineDash(key === activeArea ? [] : [6, 4]);
+    ctx.strokeRect(a.x * scale, a.y * scale, a.width * scale, a.height * scale);
+    ctx.fillStyle = colors[key] + '33';
+    ctx.fillRect(a.x * scale, a.y * scale, a.width * scale, a.height * scale);
+  }
+  ctx.setLineDash([]);
+}
+
+function updateAreaStatus() {
+  const el = document.getElementById('areaStatus');
+  el.innerHTML = ['video', 'episode', 'title'].map(k => {
+    const a = areas[k];
+    const done = !!a;
+    return `<div class="status ${done ? 'ok' : 'warn'}">${k}: ${done ? `x${a.x} y${a.y} ${a.width}×${a.height}` : 'belum digambar'}</div>`;
+  }).join('');
+}
+
+document.getElementById('genBtn').addEventListener('click', () => {
+  const hint = document.getElementById('genHint');
+  if (!img) { hint.textContent = 'Muat gambar template dulu.'; return; }
+  if (!areas.video || !areas.episode || !areas.title) { hint.textContent = 'Gambar ketiga area dulu (video, episode, title).'; return; }
+  const name = (document.getElementById('tplName').value || 'template').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  const label = document.getElementById('tplLabel').value.trim() || name;
+  const epFormat = document.getElementById('epFormat').value.trim() || '{text}';
+  const epSize = Number(document.getElementById('epSize').value) || 56;
+  const tiSize = Number(document.getElementById('tiSize').value) || 62;
+  const epBright = Number(document.getElementById('epBright').value);
+  const tiBright = Number(document.getElementById('tiBright').value);
+
+  const fontBlock = {
+    font: "Sansita-ExtraBoldItalic.ttf",
+    font_fallbacks: ["Amaranth-BoldItalic.ttf", "AlegreyaSans-ExtraBoldItalic.ttf", "Almendra-Bold.ttf", "Lora-Italic-Variable.ttf"],
+    color: "#140703",
+    stroke_color: "#2e1104",
+    stroke_width: 2,
+    shadow: { offset: [2, 3], blur: 3, color: "#000000", opacity: 0.7 },
+  };
+
+  const config = {
+    name, label, image: `${name}.png`,
+    canvas: { width: natW - (natW % 2), height: natH - (natH % 2) },
+    video_area: areas.video,
+    episode_area: areas.episode,
+    title_area: areas.title,
+    episode: { text_format: epFormat, ...fontBlock, font_size: epSize, min_font_size: Math.round(epSize * 0.6),
+      fire: { spread: 30, lift: 8, sparks: 30, brightness: epBright } },
+    title: { ...fontBlock, font_size: tiSize, min_font_size: Math.round(tiSize * 0.65), max_lines: 3,
+      max_width: Math.round((areas.title.width || 800) * 0.95), line_spacing: 1.18,
+      fire: { spread: 32, lift: 9, sparks: 70, brightness: tiBright } },
+  };
+
+  const json = JSON.stringify(config, null, 2);
+  document.getElementById('out').value = json;
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${name}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  hint.textContent = `Tersimpan sebagai ${name}.json. Ukuran canvas otomatis dari gambar: ${natW}×${natH}px${(natW%2||natH%2)?' (dibulatkan ke genap)':''}.`;
+});
+
+updateAreaStatus();
+</script>
+</body>
+</html>

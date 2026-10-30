@@ -1,0 +1,74 @@
+import { useState } from "react";
+import { Download, Flame, Film, Trash2 } from "lucide-react";
+import ProgressBar from "./ProgressBar.jsx";
+import { deleteJob, downloadUrl, previewUrl, templatePreviewUrl } from "../services/api.js";
+
+export default function PreviewPanel({ job, template, retentionMinutes, outputWidth = 1080, outputHeight = 1920, onDeleted }) {
+  const [deleting, setDeleting] = useState(false);
+  const status = job?.status;
+  const busy = status === "queued" || status === "processing";
+  const done = status === "completed";
+
+  const remove = async () => {
+    setDeleting(true);
+    try {
+      await deleteJob(job.job_id);
+    } catch {
+      /* sudah terhapus otomatis — tetap bersihkan tampilan */
+    }
+    setDeleting(false);
+    onDeleted?.();
+  };
+
+  return (
+    <div className="panel p-4 sm:p-5">
+      <div className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gold-400">
+        <Film className="h-4 w-4" /> Preview
+      </div>
+
+      <div className="relative mx-auto w-full max-w-[380px] overflow-hidden rounded-xl border border-ink-600 bg-black" style={{ aspectRatio: `${outputWidth} / ${outputHeight}` }}>
+        {done ? (
+          <video
+            key={job.job_id}
+            className="h-full w-full bg-black object-contain"
+            src={previewUrl(job.job_id)}
+            controls
+            playsInline
+            autoPlay
+            loop
+          />
+        ) : (
+          <>
+            {template && (
+              <img src={templatePreviewUrl(template)} alt="Preview template tersimpan" className={`h-full w-full object-contain ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />
+            )}
+            {busy && <div className="absolute inset-0 grid place-items-center bg-black/20"><Flame className="h-10 w-10 animate-pulse text-ember-400" /></div>}
+          </>
+        )}
+      </div>
+
+      {busy && (
+        <div className="mt-4">
+          <ProgressBar label={status === "queued" ? "Menunggu antrean" : job.stage || "Rendering Video"} percent={job.progress} />
+        </div>
+      )}
+
+      {done && (
+        <div className="mt-4 space-y-2">
+          <a href={downloadUrl(job.job_id)} className="btn-primary w-full" download={job.filename}>
+            <Download className="h-4 w-4" /> Download Clip
+          </a>
+          <p className="text-center font-mono text-xs text-stone-500">{job.filename}</p>
+          <button className="btn-ghost w-full" onClick={remove} disabled={deleting} title="Hapus video & caption dari server sekarang">
+            <Trash2 className="h-4 w-4" /> {deleting ? "Menghapus…" : "Hapus dari server"}
+          </button>
+          {retentionMinutes ? (
+            <p className="text-center text-[11px] text-amber-300/80">
+              Hasil tidak disimpan permanen — dihapus otomatis ±{retentionMinutes} menit setelah selesai. Download sekarang.
+            </p>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}

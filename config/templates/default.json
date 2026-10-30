@@ -1,0 +1,96 @@
+{
+  "name": "default",
+  "label": "Template Default",
+  "image": "template_default.png",
+  "canvas": {
+    "width": 1024,
+    "height": 1536
+  },
+  "video_area": {
+    "x": 72,
+    "y": 420,
+    "width": 880,
+    "height": 600
+  },
+  "episode_area": {
+    "x": 100,
+    "y": 205,
+    "width": 824,
+    "height": 145
+  },
+  "title_area": {
+    "x": 90,
+    "y": 1100,
+    "width": 844,
+    "height": 310
+  },
+  "episode": {
+    "text_format": "{text}",
+    "style_type": "outline",
+    "font": "Sansita-ExtraBoldItalic.ttf",
+    "font_fallbacks": [
+      "Amaranth-BoldItalic.ttf",
+      "AlegreyaSans-ExtraBoldItalic.ttf",
+      "Almendra-Bold.ttf",
+      "Lora-Italic-Variable.ttf"
+    ],
+    "font_size": 56,
+    "min_font_size": 36,
+    "max_lines": 2,
+    "max_width": 800,
+    "line_spacing": 1.15,
+    "color": "#ffffff",
+    "stroke_color": "#080808",
+    "stroke_width": 3,
+    "shadow": {
+      "offset": [
+        2,
+        3
+      ],
+      "blur": 3,
+      "color": "#000000",
+      "opacity": 0.8
+    },
+    "fire": {
+      "enabled": false,
+      "spread": 30,
+      "lift": 8,
+      "sparks": 0,
+      "brightness": 0.68
+    }
+  },
+  "title": {
+    "style_type": "outline",
+    "font": "Sansita-ExtraBoldItalic.ttf",
+    "font_fallbacks": [
+      "Amaranth-BoldItalic.ttf",
+      "AlegreyaSans-ExtraBoldItalic.ttf",
+      "Almendra-Bold.ttf",
+      "Lora-Italic-Variable.ttf"
+    ],
+    "font_size": 62,
+    "min_font_size": 40,
+    "max_lines": 3,
+    "max_width": 820,
+    "line_spacing": 1.18,
+    "color": "#ffffff",
+    "stroke_color": "#080808",
+    "stroke_width": 3,
+    "shadow": {
+      "offset": [
+        2,
+        3
+      ],
+      "blur": 3,
+      "color": "#000000",
+      "opacity": 0.8
+    },
+    "fire": {
+      "enabled": false,
+      "spread": 32,
+      "lift": 9,
+      "sparks": 0,
+      "brightness": 0.68
+    }
+  }
+}

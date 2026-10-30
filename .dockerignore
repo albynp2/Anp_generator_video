@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+.venv
+storage/uploads
+storage/jobs
+frontend
+node_modules
+
+# Secrets and local runtime data
+.env
+.env.*.local

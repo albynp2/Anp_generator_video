@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+
+html, body, #root { min-height: 100%; }
+
+body {
+  @apply bg-ink-950 text-stone-200 antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-image:
+    radial-gradient(900px 500px at 85% -10%, rgba(255, 106, 0, 0.12), transparent 60%),
+    radial-gradient(700px 500px at -10% 110%, rgba(181, 58, 0, 0.14), transparent 60%);
+  background-attachment: fixed;
+}
+
+@layer components {
+  .panel { @apply rounded-2xl border border-ember-700/25 bg-ink-800/90 shadow-lg shadow-black/40; }
+  .label { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gold-400/80; }
+  .input {
+    @apply w-full rounded-lg border border-ink-600 bg-ink-900 px-3 py-2.5 text-sm text-stone-100
+           placeholder:text-stone-600 outline-none transition
+           focus:border-ember-500 focus:ring-2 focus:ring-ember-500/25;
+  }
+  .input-error { @apply border-red-500/70 focus:border-red-500 focus:ring-red-500/25; }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-ember-600 to-gold-500
+           px-5 py-3 text-sm font-bold uppercase tracking-wider text-ink-950 shadow-glow transition
+           hover:brightness-110 active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-600 px-4 py-2.5 text-sm
+           font-semibold text-stone-300 transition hover:border-ember-500/60 hover:text-white;
+  }
+}
+
+/* Font themes used by Template Builder preview (same files as backend renderer). */
+@font-face{font-family:ThemeCinematic;src:url('/fonts/Almendra-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:ThemeBold;src:url('/fonts/Sansita-ExtraBold.ttf') format('truetype');font-weight:900;font-style:normal;font-display:swap}
+@font-face{font-family:ThemeModern;src:url('/fonts/AlegreyaSans-ExtraBoldItalic.ttf') format('truetype');font-weight:800;font-style:italic;font-display:swap}
+@font-face{font-family:ThemeElegant;src:url('/fonts/Lora-Italic-Variable.ttf') format('truetype');font-weight:700;font-style:italic;font-display:swap}
+@font-face{font-family:ThemePlayful;src:url('/fonts/Amaranth-BoldItalic.ttf') format('truetype');font-weight:700;font-style:italic;font-display:swap}

@@ -1,0 +1,45 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: anp-clipper-backend
+    restart: unless-stopped
+    environment:
+      ANP_CLIPPER_ROOT: /app
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-4096}
+      MIN_FREE_DISK_MB: ${MIN_FREE_DISK_MB:-1024}
+      MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-1}
+      MAX_CLIP_SECONDS: ${MAX_CLIP_SECONDS:-600}
+      JOB_RETENTION_MINUTES: ${JOB_RETENTION_MINUTES:-20}
+      UPLOAD_RETENTION_MINUTES: ${UPLOAD_RETENTION_MINUTES:-120}
+      CLEAN_ON_START: ${CLEAN_ON_START:-false}
+      OUTPUT_FPS: ${OUTPUT_FPS:-30}
+      VIDEO_CRF: ${VIDEO_CRF:-14}
+      VIDEO_PRESET: ${VIDEO_PRESET:-medium}
+      AUDIO_BITRATE: ${AUDIO_BITRATE:-192k}
+      KEEP_INTERMEDIATE: ${KEEP_INTERMEDIATE:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CAPTION_PROVIDER: ${CAPTION_PROVIDER:-auto}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_CAPTION_MODEL: ${OPENAI_CAPTION_MODEL:-gpt-4o-mini}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CAPTION_MODEL: ${CAPTION_MODEL:-claude-sonnet-5}
+      CAPTION_FRAMES: ${CAPTION_FRAMES:-6}
+      CAPTION_DEFAULT_ON: ${CAPTION_DEFAULT_ON:-true}
+    volumes:
+      - ./storage:/app/storage
+      - ./assets:/app/assets      # template & font bisa diganti tanpa rebuild
+      - ./config:/app/config      # koordinat template bisa diedit tanpa rebuild
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: anp-clipper-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
