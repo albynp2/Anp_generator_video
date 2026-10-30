@@ -218,7 +218,7 @@ export default function Home({ onOpenBuilder }) {
         upload_id: upload.info.upload_id,
         template: form.template,
         fit: form.fit,
-        video_layout: form.videoLayout,
+        video_layout: "template_background",
         output_width: Number(form.outputWidth),
         output_height: Number(form.outputHeight),
         audio_only: mode === "audio_only",
