@@ -3,26 +3,26 @@
   "label": "Template Default",
   "image": "template_default.png",
   "canvas": {
-    "width": 1024,
-    "height": 1536
+    "width": 1080,
+    "height": 1920
   },
   "video_area": {
-    "x": 72,
-    "y": 420,
-    "width": 880,
-    "height": 600
+    "x": 0,
+    "y": 288,
+    "width": 1080,
+    "height": 1344
   },
   "episode_area": {
-    "x": 100,
-    "y": 205,
-    "width": 824,
-    "height": 145
+    "x": 54,
+    "y": 28,
+    "width": 972,
+    "height": 230
   },
   "title_area": {
-    "x": 90,
-    "y": 1100,
-    "width": 844,
-    "height": 310
+    "x": 54,
+    "y": 1660,
+    "width": 972,
+    "height": 230
   },
   "episode": {
     "text_format": "{text}",
@@ -34,10 +34,10 @@
       "Almendra-Bold.ttf",
       "Lora-Italic-Variable.ttf"
     ],
-    "font_size": 56,
-    "min_font_size": 36,
+    "font_size": 64,
+    "min_font_size": 40,
     "max_lines": 2,
-    "max_width": 800,
+    "max_width": 940,
     "line_spacing": 1.15,
     "color": "#ffffff",
     "stroke_color": "#080808",
@@ -68,10 +68,10 @@
       "Almendra-Bold.ttf",
       "Lora-Italic-Variable.ttf"
     ],
-    "font_size": 62,
-    "min_font_size": 40,
+    "font_size": 68,
+    "min_font_size": 42,
     "max_lines": 3,
-    "max_width": 820,
+    "max_width": 940,
     "line_spacing": 1.18,
     "color": "#ffffff",
     "stroke_color": "#080808",

@@ -40,6 +40,7 @@ function savePrefs(p) {
 
 export default function Home({ onOpenBuilder }) {
   const [upload, setUpload] = useState(EMPTY_UPLOAD);
+  const [sourcePreviewUrl, setSourcePreviewUrl] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
   const [templates, setTemplates] = useState([]);
   const [job, setJob] = useState(null);
@@ -144,8 +145,11 @@ export default function Home({ onOpenBuilder }) {
     [stopPolling]
   );
 
+  useEffect(() => () => { if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl); }, [sourcePreviewUrl]);
+
   // --- upload
   const handleFile = async (file) => {
+    setSourcePreviewUrl(URL.createObjectURL(file));
     setApiError("");
     setJob(null);
     setUpload({ ...EMPTY_UPLOAD, status: "uploading", fileName: file.name });
@@ -218,7 +222,7 @@ export default function Home({ onOpenBuilder }) {
         upload_id: upload.info.upload_id,
         template: form.template,
         fit: form.fit,
-        video_layout: form.videoLayout,
+        video_layout: "template_background",
         output_width: Number(form.outputWidth),
         output_height: Number(form.outputHeight),
         audio_only: mode === "audio_only",
@@ -308,6 +312,7 @@ export default function Home({ onOpenBuilder }) {
             <UploadZone state={upload} onFile={handleFile} onClear={() => {
               if (upload.info) deleteUpload(upload.info.upload_id).catch(() => {});
               setUpload(EMPTY_UPLOAD);
+              setSourcePreviewUrl("");
               setJob(null);
             }} disabled={busy} />
           </Field>
@@ -347,17 +352,6 @@ export default function Home({ onOpenBuilder }) {
                 </Field>
                 <Field label="Video Fit">
                   <FitToggle value={form.fit} onChange={set("fit")} disabled={busy} />
-                </Field>
-                <Field label="Layout Video" hint="Pilih apakah video memenuhi seluruh layar atau mengikuti area video pada desain template.">
-                  <select className="input" value={form.videoLayout} disabled={busy}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setForm((f) => ({ ...f, videoLayout: value, fit: value === "full_screen" ? "contain" : f.fit }));
-                    }}>
-                    <option value="template_background">Template Background — video di area desain</option>
-                    <option value="full_screen">Full Screen Video — memenuhi seluruh layar</option>
-                  </select>
-                  {form.videoLayout === "full_screen" && <p className="mt-1 text-xs text-stone-400">Mode Contain memakai latar video blur agar konten landscape tetap utuh tanpa bar hitam. Mode Cover memenuhi layar dengan crop.</p>}
                 </Field>
               </div>
 
@@ -498,7 +492,7 @@ export default function Home({ onOpenBuilder }) {
 
         {/* KANAN: preview */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} retentionMinutes={retention} onDeleted={() => { stopPolling(); setJob(null); }} />
+          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} sourcePreviewUrl={mode === "clip" ? sourcePreviewUrl : ""} fit={form.fit} videoArea={templates.find((t) => t.name === form.template)?.video_area} templateWidth={templates.find((t) => t.name === form.template)?.width} templateHeight={templates.find((t) => t.name === form.template)?.height} startSeconds={parseTimecode(form.start) ?? 0} endSeconds={parseTimecode(form.end)} retentionMinutes={retention} outputWidth={form.outputWidth} outputHeight={form.outputHeight} onDeleted={() => { stopPolling(); setJob(null); }} />
           {job?.status === "completed" && job.caption_status !== "off" && (
             <CaptionPanel jobId={job.job_id} arc={form.arc.trim()} notes={form.notes.trim()} />
           )}

@@ -298,7 +298,12 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
             max_width=round(style.max_width * scale) if style.max_width else None,
             shadow=shadow, background=background, fire=fire)
 
-    video_area = (0, 0, canvas[0], canvas[1]) if clip.video_layout == "full_screen" else map_area(tpl.video_area)
+    # Vertical short-form layout: keep the main footage inside the center 70%.
+    # Custom template coordinates remain editable; default template uses fixed thirds.
+    if tpl.name == "default" and canvas[1] >= canvas[0]:
+        video_area = (0, round(canvas[1] * 0.15), canvas[0], round(canvas[1] * 0.70))
+    else:
+        video_area = map_area(tpl.video_area)
     episode_area = map_area(tpl.episode_area)
     title_area = map_area(tpl.title_area)
     episode_style = scale_style(tpl.episode_style)
@@ -307,9 +312,9 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
     progress(2, "Menyiapkan template")
     template_png = job_dir / "template.png"
     with Image.open(tpl.image_path) as im:
-        im = im.convert("RGB").resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
-        canvas_image = Image.new("RGB", canvas, (0, 0, 0))
-        canvas_image.paste(im, (offset_x, offset_y))
+        im = im.convert("RGBA").resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
+        canvas_image = Image.new("RGBA", canvas, (0, 0, 0, 255))
+        canvas_image.alpha_composite(im, (offset_x, offset_y))
         canvas_image.save(template_png)
 
     progress(4, "Membuat teks utama")
@@ -342,6 +347,7 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
         fit=clip.fit,
         has_audio=clip.has_audio,
         video_layout=clip.video_layout,
+        background_mode="blur" if tpl.name == "default" else "image",
         source_crop=(
             ffmpeg_service.detect_active_crop(clip.source, clip.start, clip.duration)
             if clip.video_layout == "full_screen" and clip.fit == "contain" else ()

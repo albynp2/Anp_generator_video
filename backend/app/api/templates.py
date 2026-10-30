@@ -31,6 +31,7 @@ def templates():
                 "label": t.label,
                 "width": t.width,
                 "height": t.height,
+                "video_area": {"x": t.video_area.x, "y": t.video_area.y, "width": t.video_area.width, "height": t.video_area.height},
                 "preview_url": f"/api/templates/{t.name}/image",
             }
             for t in items

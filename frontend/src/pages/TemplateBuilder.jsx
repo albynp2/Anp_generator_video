@@ -23,16 +23,14 @@ function autoAreasFor(w, h) {
   // Layout generik: video di tengah, teks utama di atas, judul di bawah.
   const vertical = h >= w;
   const video = vertical
-    ? { x: Math.round(w * .04), y: Math.round(h * .27), width: Math.round(w * .92), height: Math.round(h * .43) }
-    // Landscape Auto Template: video memenuhi strip horizontal selebar canvas,
-    // sesuai area merah pada referensi pengguna (x=0, full width).
-    : { x: 0, y: Math.round(h * .215), width: w, height: Math.round(h * .458) };
+    ? { x: 0, y: Math.round(h * .15), width: w, height: Math.round(h * .70) }
+    : { x: Math.round(w * .15), y: 0, width: Math.round(w * .70), height: h };
   const episode = vertical
-    ? { x: Math.round(w * .05), y: Math.round(h * .10), width: Math.round(w * .90), height: Math.round(h * .12) }
-    : { x: Math.round(w * .05), y: Math.round(h * .06), width: Math.round(w * .90), height: Math.round(h * .12) };
+    ? { x: Math.round(w * .05), y: Math.round(h * .015), width: Math.round(w * .90), height: Math.round(h * .12) }
+    : { x: Math.round(w * .05), y: Math.round(h * .05), width: Math.round(w * .90), height: Math.round(h * .12) };
   const title = vertical
-    ? { x: Math.round(w * .05), y: Math.round(h * .75), width: Math.round(w * .90), height: Math.round(h * .16) }
-    : { x: Math.round(w * .05), y: Math.round(h * .76), width: Math.round(w * .90), height: Math.round(h * .16) };
+    ? { x: Math.round(w * .05), y: Math.round(h * .865), width: Math.round(w * .90), height: Math.round(h * .12) }
+    : { x: Math.round(w * .05), y: Math.round(h * .83), width: Math.round(w * .90), height: Math.round(h * .12) };
   return { video, episode, title };
 }
 
