@@ -25,6 +25,13 @@ async function request(path, options) {
 }
 
 export const getTemplates = () => request("/api/templates");
+export const getTemplateConfig = (name) => request(`/api/templates/${encodeURIComponent(name)}/config`);
+export async function getTemplateImageFile(name) {
+  const res = await fetch(templateImageUrl(name));
+  if (!res.ok) throw new Error(`Gagal memuat gambar template (HTTP ${res.status}).`);
+  const blob = await res.blob();
+  return new File([blob], `${name}.png`, { type: blob.type || "image/png" });
+}
 export const getHealth = () => request("/api/health");
 export const getStatus = (jobId) => request(`/api/status/${jobId}`);
 
