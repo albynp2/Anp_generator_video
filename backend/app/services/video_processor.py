@@ -306,6 +306,17 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
         video_area = map_area(tpl.video_area)
     episode_area = map_area(tpl.episode_area)
     title_area = map_area(tpl.title_area)
+
+    # Pada mode Contain, teks ditempatkan di ruang letterbox atas/bawah
+    # yang terbentuk dari video_area. Cover tetap memakai posisi template lama.
+    if clip.fit == "contain" and tpl.name == "default":
+        vx, vy, vw, vh = video_area
+        top_h = max(2, vy)
+        bottom_y = min(canvas[1] - 2, vy + vh)
+        bottom_h = max(2, canvas[1] - bottom_y)
+        episode_area = (episode_area[0], 0, episode_area[2], top_h)
+        title_area = (title_area[0], bottom_y, title_area[2], bottom_h)
+
     episode_style = scale_style(tpl.episode_style)
     title_style = scale_style(tpl.title_style)
 
