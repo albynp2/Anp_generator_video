@@ -236,22 +236,8 @@ async def preview_template(
     episode_area = template_service.Area.from_dict(data.get("episode_area") or {}, "episode_area", cw, ch)
     title_area = template_service.Area.from_dict(data.get("title_area") or {}, "title_area", cw, ch)
 
-    # Placeholder video mengikuti persis koordinat viewport video pada template.
-    vx, vy, vw, vh = video_area.as_tuple()
-    # Builder tidak memiliki video sumber; tampilkan placeholder 16:9
-    # yang di-fit Contain agar ruang letterbox terlihat pada preview.
-    placeholder = Image.new("RGBA", (vw, vh), (24, 24, 28, 255))
-    preview_w, preview_h = vw, vh
-    preview_scale = min(vw / 16, vh / 9)
-    preview_w = max(2, min(vw, round(16 * preview_scale)))
-    preview_h = max(2, min(vh, round(9 * preview_scale)))
-    preview_x, preview_y = (vw - preview_w) // 2, (vh - preview_h) // 2
-    frame = Image.new("RGBA", (preview_w, preview_h), (13, 13, 16, 255))
-    fd = ImageDraw.Draw(frame)
-    fd.rectangle((0, 0, preview_w - 1, preview_h - 1), outline=(75, 75, 82, 255), width=max(1, min(3, preview_w // 180)))
-    fd.text((preview_w // 2, preview_h // 2), "VIDEO PREVIEW", fill=(155, 155, 165, 220), anchor="mm")
-    placeholder.alpha_composite(frame, (preview_x, preview_y))
-    base.alpha_composite(placeholder, (vx, vy))
+    # Tidak menambahkan kotak hitam placeholder. Gambar template tetap utuh
+    # sebagai background; saat render, background blur akan diisi dari video sumber.
 
     episode_style = text_renderer.TextStyle.from_dict(data.get("episode"))
     title_style = text_renderer.TextStyle.from_dict(data.get("title"))
