@@ -3,7 +3,6 @@ import { AlertTriangle, Clapperboard, Film, Flame, LayoutTemplate, Music2, Spark
 import UploadZone from "../components/UploadZone.jsx";
 import Field from "../components/Field.jsx";
 import TimeInput from "../components/TimeInput.jsx";
-import FitToggle from "../components/FitToggle.jsx";
 import PreviewPanel from "../components/PreviewPanel.jsx";
 import CaptionPanel from "../components/CaptionPanel.jsx";
 import MuteMusicFields from "../components/MuteMusicFields.jsx";
@@ -15,7 +14,7 @@ import { parseTimecode } from "../utils/time.js";
 
 const EMPTY_UPLOAD = { status: "idle", progress: 0, info: null, error: "", fileName: "" };
 const EMPTY_AUDIO = { status: "idle", progress: 0, info: null, error: "" };
-const INITIAL_FORM = { episode: "", start: "", end: "", title: "", template: "default", fit: "cover", videoLayout: "template_background", outputPreset: "1080x1920", outputWidth: 1080, outputHeight: 1920, arc: "", notes: "", caption: true };
+const INITIAL_FORM = { episode: "", start: "", end: "", title: "", template: "default", fit: "contain", videoLayout: "template_background", outputPreset: "1080x1920", outputWidth: 1080, outputHeight: 1920, arc: "", notes: "", caption: true };
 const TITLE_LIMIT = 200;
 const PREF_KEY = "anp-clipper.caption.prefs";
 const LEGACY_PREF_KEY = "hersclipp.caption.prefs";
@@ -221,7 +220,7 @@ export default function Home({ onOpenBuilder }) {
       const payload = {
         upload_id: upload.info.upload_id,
         template: form.template,
-        fit: form.fit,
+        fit: "contain",
         video_layout: "template_background",
         output_width: Number(form.outputWidth),
         output_height: Number(form.outputHeight),
@@ -349,9 +348,6 @@ export default function Home({ onOpenBuilder }) {
                   {templates.length === 0 && (
                     <p className="mt-1 text-xs text-amber-300">Semua template sedang dihapus/nonaktif. Tambahkan PNG dan JSON template untuk mengaktifkan Generate Video.</p>
                   )}
-                </Field>
-                <Field label="Video Fit">
-                  <FitToggle value={form.fit} onChange={set("fit")} disabled={busy} />
                 </Field>
               </div>
 
@@ -492,7 +488,7 @@ export default function Home({ onOpenBuilder }) {
 
         {/* KANAN: preview */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} sourcePreviewUrl={mode === "clip" ? sourcePreviewUrl : ""} fit={form.fit} videoArea={templates.find((t) => t.name === form.template)?.video_area} layoutMode={templates.find((t) => t.name === form.template)?.layout_mode} templateWidth={templates.find((t) => t.name === form.template)?.width} templateHeight={templates.find((t) => t.name === form.template)?.height} episodeText={form.episode} titleText={form.title} startSeconds={parseTimecode(form.start) ?? 0} endSeconds={parseTimecode(form.end)} retentionMinutes={retention} outputWidth={form.outputWidth} outputHeight={form.outputHeight} onDeleted={() => { stopPolling(); setJob(null); }} />
+          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} sourcePreviewUrl={mode === "clip" ? sourcePreviewUrl : ""} fit="contain" videoArea={templates.find((t) => t.name === form.template)?.video_area} layoutMode={templates.find((t) => t.name === form.template)?.layout_mode} templateWidth={templates.find((t) => t.name === form.template)?.width} templateHeight={templates.find((t) => t.name === form.template)?.height} episodeText={form.episode} titleText={form.title} startSeconds={parseTimecode(form.start) ?? 0} endSeconds={parseTimecode(form.end)} retentionMinutes={retention} outputWidth={form.outputWidth} outputHeight={form.outputHeight} onDeleted={() => { stopPolling(); setJob(null); }} />
           {job?.status === "completed" && job.caption_status !== "off" && (
             <CaptionPanel jobId={job.job_id} arc={form.arc.trim()} notes={form.notes.trim()} />
           )}
