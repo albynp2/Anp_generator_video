@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, Flame, Film, Trash2 } from "lucide-react";
 import ProgressBar from "./ProgressBar.jsx";
-import { deleteJob, downloadUrl, previewUrl, templatePreviewUrl } from "../services/api.js";
+import { deleteJob, downloadUrl, previewUrl, templatePreviewUrl, templateTextPreviewUrl } from "../services/api.js";
 
 export default function PreviewPanel({
   job, template, sourcePreviewUrl, videoArea, layoutMode = "manual", templateWidth = 1080, templateHeight = 1920,
@@ -88,7 +88,7 @@ export default function PreviewPanel({
           <video key={job.job_id} className="h-full w-full bg-black object-contain" src={previewUrl(job.job_id)} controls playsInline />
         ) : (
           <>
-            {template && template !== "default" && <img src={templatePreviewUrl(template, episodeText, titleText, "contain", sourceSize.width, sourceSize.height, outputWidth, outputHeight)} alt="Preview template" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {template && template !== "default" && <img src={templatePreviewUrl(template, "", "", "contain", sourceSize.width, sourceSize.height, outputWidth, outputHeight)} alt="Preview template" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
             {thumbnailUrl && template === "default" && (
               <img src={thumbnailUrl} alt="Background blur preview" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-55 blur-xl" />
             )}
@@ -98,6 +98,13 @@ export default function PreviewPanel({
                 alt="Gambar video"
                 className="absolute"
                 style={{ ...areaStyle, objectFit: "contain" }}
+              />
+            )}
+            {template && (episodeText.trim() || titleText.trim()) && (
+              <img
+                src={templateTextPreviewUrl(template, episodeText, titleText, outputWidth, outputHeight)}
+                alt="Preview teks dari pengaturan template"
+                className="pointer-events-none absolute inset-0 h-full w-full"
               />
             )}
             {busy && <div className="absolute inset-0 z-10 grid place-items-center bg-black/20"><Flame className="h-10 w-10 animate-pulse text-ember-400" /></div>}
