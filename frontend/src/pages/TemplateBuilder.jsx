@@ -139,7 +139,15 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
         const cv = canvasRef.current; cv.width = Math.round(w * s); cv.height = Math.round(h * s);
         setNatSize({ w, h });
         if (loadedConfig) {
-          const toArea = (a) => ({ x: Number(a?.x) || 0, y: Number(a?.y) || 0, width: Number(a?.width) || w, height: Number(a?.height) || h });
+          const oldCanvas = loadedConfig.canvas || {};
+          const ratioX = Number(oldCanvas.width) > 0 ? CANVAS_W / Number(oldCanvas.width) : 1;
+          const ratioY = Number(oldCanvas.height) > 0 ? CANVAS_H / Number(oldCanvas.height) : 1;
+          const toArea = (a) => ({
+            x: Math.round((Number(a?.x) || 0) * ratioX),
+            y: Math.round((Number(a?.y) || 0) * ratioY),
+            width: Math.round((Number(a?.width) || Number(oldCanvas.width) || w) * ratioX),
+            height: Math.round((Number(a?.height) || Number(oldCanvas.height) || h) * ratioY),
+          });
           setAreas({ video: toArea(loadedConfig.video_area), episode: toArea(loadedConfig.episode_area), title: toArea(loadedConfig.title_area) });
           setMode(loadedConfig.layout_mode === "manual" ? "manual" : "auto");
           setName(loadedConfig.name || ""); setLabel(loadedConfig.label || "");
