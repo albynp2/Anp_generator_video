@@ -4,7 +4,7 @@ import ProgressBar from "./ProgressBar.jsx";
 import { deleteJob, downloadUrl, previewUrl, templatePreviewUrl } from "../services/api.js";
 
 export default function PreviewPanel({
-  job, template, sourcePreviewUrl, fit = "cover", videoArea, templateWidth = 1080, templateHeight = 1920,
+  job, template, sourcePreviewUrl, fit = "cover", videoArea, layoutMode = "manual", templateWidth = 1080, templateHeight = 1920,
   episodeText = "", titleText = "", startSeconds = 0, endSeconds, retentionMinutes,
   outputWidth = 1080, outputHeight = 1920, onDeleted
 }) {
@@ -88,7 +88,7 @@ export default function PreviewPanel({
           <video key={job.job_id} className="h-full w-full bg-black object-contain" src={previewUrl(job.job_id)} controls playsInline />
         ) : (
           <>
-            {template && <img src={templatePreviewUrl(template, episodeText, titleText, fit, sourceSize.width, sourceSize.height)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {template && <img src={templatePreviewUrl(template, episodeText, titleText, fit, sourceSize.width, sourceSize.height, outputWidth, outputHeight)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
             {thumbnailUrl && template && (
               <img
                 src={thumbnailUrl}
