@@ -73,7 +73,7 @@ def template_preview(
 
     episode_area = tpl.episode_area.as_tuple()
     title_area = tpl.title_area.as_tuple()
-    if (fit == "contain" and source_width > 0 and source_height > 0:
+    if fit == "contain" and source_width > 0 and source_height > 0:
         contain_scale = min(vw / source_width, vh / source_height)
         displayed_h = max(2, round(source_height * contain_scale))
         letterbox_top = max(0, (vh - displayed_h) // 2)
