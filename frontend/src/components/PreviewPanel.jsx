@@ -4,7 +4,7 @@ import ProgressBar from "./ProgressBar.jsx";
 import { deleteJob, downloadUrl, previewUrl, templatePreviewUrl } from "../services/api.js";
 
 export default function PreviewPanel({
-  job, template, sourcePreviewUrl, fit = "cover", videoArea, layoutMode = "manual", templateWidth = 1080, templateHeight = 1920,
+  job, template, sourcePreviewUrl, videoArea, layoutMode = "manual", templateWidth = 1080, templateHeight = 1920,
   episodeText = "", titleText = "", startSeconds = 0, endSeconds, retentionMinutes,
   outputWidth = 1080, outputHeight = 1920, onDeleted
 }) {
@@ -88,13 +88,13 @@ export default function PreviewPanel({
           <video key={job.job_id} className="h-full w-full bg-black object-contain" src={previewUrl(job.job_id)} controls playsInline />
         ) : (
           <>
-            {template && <img src={templatePreviewUrl(template, episodeText, titleText, fit, sourceSize.width, sourceSize.height, outputWidth, outputHeight)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {template && <img src={templatePreviewUrl(template, episodeText, titleText, "contain", sourceSize.width, sourceSize.height, outputWidth, outputHeight)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
             {thumbnailUrl && template && (
               <img
                 src={thumbnailUrl}
                 alt="Gambar video"
                 className="absolute"
-                style={{ ...areaStyle, objectFit: fit === "contain" ? "contain" : "cover" }}
+                style={{ ...areaStyle, objectFit: "contain" }}
               />
             )}
             {busy && <div className="absolute inset-0 z-10 grid place-items-center bg-black/20"><Flame className="h-10 w-10 animate-pulse text-ember-400" /></div>}
@@ -103,7 +103,7 @@ export default function PreviewPanel({
       </div>
 
       {sourcePreviewUrl && !done && (
-        <p className="mt-2 text-center text-[11px] text-stone-500">Preview gambar statis · Teks utama &amp; title mengikuti input · Video Fit: {fit === "contain" ? "Contain" : "Cover"}</p>
+        <p className="mt-2 text-center text-[11px] text-stone-500">Preview gambar statis · Teks utama &amp; title mengikuti input · Video Fit: Contain</p>
       )}
 
       {busy && <div className="mt-4"><ProgressBar label={status === "queued" ? "Menunggu antrean" : job.stage || "Rendering Video"} percent={job.progress} /></div>}
