@@ -283,8 +283,20 @@ async def preview_template(
     episode_area = template_service.Area.from_dict(data.get("episode_area") or {}, "episode_area", cw, ch)
     title_area = template_service.Area.from_dict(data.get("title_area") or {}, "title_area", cw, ch)
 
-    # Tidak menambahkan kotak hitam placeholder. Gambar template tetap utuh
-    # sebagai background; saat render, background blur akan diisi dari video sumber.
+    # Susunan layer harus sama dengan Generator dan FFmpeg:
+    # background template -> bidang hitam video -> video (saat generate) -> teks.
+    # Preview Builder tidak memuat video sumber, jadi tampilkan bidang hitamnya.
+    video_area = template_service.Area.from_dict(data.get("video_area") or {}, "video_area", cw, ch)
+    draw = ImageDraw.Draw(base)
+    draw.rectangle(
+        (
+            video_area.x,
+            video_area.y,
+            video_area.x + video_area.width - 1,
+            video_area.y + video_area.height - 1,
+        ),
+        fill=(0, 0, 0, 255),
+    )
 
     episode_style = text_renderer.TextStyle.from_dict(data.get("episode"))
     title_style = text_renderer.TextStyle.from_dict(data.get("title"))
