@@ -170,18 +170,26 @@ def template_text_preview(
     output_height = max(2, min(4096, int(output_height or 1920)))
     canvas = (output_width, output_height)
     scale = min(output_width / tpl.width, output_height / tpl.height)
-    scaled_w = max(2, int(round(tpl.width * scale)))
-    scaled_h = max(2, int(round(tpl.height * scale)))
-    offset_x = (output_width - scaled_w) // 2
-    offset_y = (output_height - scaled_h) // 2
+    if tpl.layout_mode == "auto":
+        sx, sy = output_width / tpl.width, output_height / tpl.height
+        def map_area(area):
+            x, y, w, h = area.as_tuple()
+            left, top = round(x * sx), round(y * sy)
+            right, bottom = round((x + w) * sx), round((y + h) * sy)
+            return (left, top, max(2, right - left), max(2, bottom - top))
+    else:
+        scaled_w = max(2, int(round(tpl.width * scale)))
+        scaled_h = max(2, int(round(tpl.height * scale)))
+        offset_x = (output_width - scaled_w) // 2
+        offset_y = (output_height - scaled_h) // 2
 
-    def map_area(area):
-        x, y, w, h = area.as_tuple()
-        left = max(0, min(output_width - 2, offset_x + round(x * scale)))
-        top = max(0, min(output_height - 2, offset_y + round(y * scale)))
-        right = max(left + 2, min(output_width, offset_x + round((x + w) * scale)))
-        bottom = max(top + 2, min(output_height, offset_y + round((y + h) * scale)))
-        return (left, top, right - left, bottom - top)
+        def map_area(area):
+            x, y, w, h = area.as_tuple()
+            left = max(0, min(output_width - 2, offset_x + round(x * scale)))
+            top = max(0, min(output_height - 2, offset_y + round(y * scale)))
+            right = max(left + 2, min(output_width, offset_x + round((x + w) * scale)))
+            bottom = max(top + 2, min(output_height, offset_y + round((y + h) * scale)))
+            return (left, top, right - left, bottom - top)
 
     def scale_style(style):
         shadow = dict(style.shadow) if isinstance(style.shadow, dict) else style.shadow
