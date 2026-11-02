@@ -27,17 +27,18 @@ function drawCover(ctx, image, width, height) {
   ctx.drawImage(image, sx, sy, sw, sh, 0, 0, width, height);
 }
 function autoAreasFor(w, h) {
-  // Layout generik: video di tengah, teks utama di atas, judul di bawah.
+  // Layout Auto 9:16: teks utama di zona atas (kotak merah),
+  // judul di zona bawah (kotak biru), dan video mengisi area tengah.
   const vertical = h >= w;
   const video = vertical
-    ? { x: 0, y: Math.round(h * .15), width: w, height: Math.round(h * .70) }
-    : { x: Math.round(w * .15), y: 0, width: Math.round(w * .70), height: h };
+    ? { x: 0, y: Math.round(h * .28), width: w, height: Math.round(h * .44) }
+    : { x: Math.round(w * .28), y: 0, width: Math.round(w * .44), height: h };
   const episode = vertical
-    ? { x: Math.round(w * .05), y: Math.round(h * .015), width: Math.round(w * .90), height: Math.round(h * .12) }
-    : { x: Math.round(w * .05), y: Math.round(h * .05), width: Math.round(w * .90), height: Math.round(h * .12) };
+    ? { x: Math.round(w * .22), y: Math.round(h * .20), width: Math.round(w * .56), height: Math.round(h * .08) }
+    : { x: Math.round(w * .20), y: Math.round(h * .22), width: Math.round(w * .08), height: Math.round(h * .56) };
   const title = vertical
-    ? { x: Math.round(w * .05), y: Math.round(h * .865), width: Math.round(w * .90), height: Math.round(h * .12) }
-    : { x: Math.round(w * .05), y: Math.round(h * .83), width: Math.round(w * .90), height: Math.round(h * .12) };
+    ? { x: Math.round(w * .24), y: Math.round(h * .72), width: Math.round(w * .52), height: Math.round(h * .08) }
+    : { x: Math.round(w * .72), y: Math.round(h * .22), width: Math.round(w * .08), height: Math.round(h * .56) };
   return { video, episode, title };
 }
 
