@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { Clapperboard, Flame, LayoutTemplate, Sparkles } from "lucide-react";
 import Home from "./pages/Home.jsx";
 import TemplateBuilder from "./pages/TemplateBuilder.jsx";
+import TemplateBuilderEntry from "./pages/TemplateBuilderEntry.jsx";
 
 const ROUTE = "#/template-builder";
 
 export default function App() {
   const [page, setPage] = useState(window.location.hash === ROUTE ? "builder" : "home");
+  const [builderView, setBuilderView] = useState("choose");
+  const [editTemplateName, setEditTemplateName] = useState("");
 
   useEffect(() => {
     const onHash = () => setPage(window.location.hash === ROUTE ? "builder" : "home");
@@ -14,7 +17,7 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const goBuilder = () => { window.location.hash = ROUTE; };
+  const goBuilder = () => { setBuilderView("choose"); setEditTemplateName(""); window.location.hash = ROUTE; };
   const goHome = () => { window.location.hash = ""; };
 
   return (
@@ -44,7 +47,7 @@ export default function App() {
           <div className="topbar-pill"><Sparkles size={14} /> DARK PREMIUM</div>
         </div>
         <div className="page-content">
-          {page === "builder" ? <TemplateBuilder onBack={goHome} /> : <Home onOpenBuilder={goBuilder} />}
+          {page === "builder" ? (builderView === "choose" ? <TemplateBuilderEntry onBack={goHome} onCreate={() => setBuilderView("create")} onEdit={(name) => { setEditTemplateName(name); setBuilderView("edit"); }} /> : <TemplateBuilder key={`${builderView}-${editTemplateName}`} onBack={() => setBuilderView("choose")} initialTemplateName={builderView === "edit" ? editTemplateName : ""} />) : <Home onOpenBuilder={goBuilder} />}
         </div>
       </main>
     </div>
