@@ -75,6 +75,7 @@ class Template:
     title_area: Area
     episode_style: TextStyle
     title_style: TextStyle
+    layout_mode: str = "manual"
 
 
 def _load(config_path: Path) -> Template:
@@ -119,6 +120,7 @@ def _load(config_path: Path) -> Template:
         title_area=Area.from_dict(data.get("title_area") or {}, "title_area", cw, ch),
         episode_style=TextStyle.from_dict(data.get("episode")),
         title_style=TextStyle.from_dict(data.get("title")),
+        layout_mode=str(data.get("layout_mode") or "manual").strip().lower(),
     )
 
 
