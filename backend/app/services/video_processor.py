@@ -307,15 +307,25 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
     episode_area = map_area(tpl.episode_area)
     title_area = map_area(tpl.title_area)
 
-    # Pada mode Contain, teks ditempatkan di ruang letterbox atas/bawah
-    # yang terbentuk dari video_area. Cover tetap memakai posisi template lama.
-    if clip.fit == "contain" and tpl.name == "default":
+    # Contain membuat letterbox di dalam video_area. Posisikan teks tepat
+    # di tengah ruang kosong tersebut berdasarkan rasio video sumber.
+    if clip.fit == "contain":
+        source_info = ffmpeg_service.probe(clip.source)
+        source_w = max(1, source_info.width)
+        source_h = max(1, source_info.height)
         vx, vy, vw, vh = video_area
-        top_h = max(2, vy)
-        bottom_y = min(canvas[1] - 2, vy + vh)
-        bottom_h = max(2, canvas[1] - bottom_y)
-        episode_area = (episode_area[0], 0, episode_area[2], top_h)
-        title_area = (title_area[0], bottom_y, title_area[2], bottom_h)
+        contain_scale = min(vw / source_w, vh / source_h)
+        displayed_w = max(2, round(source_w * contain_scale))
+        displayed_h = max(2, round(source_h * contain_scale))
+        letterbox_top = max(0, (vh - displayed_h) // 2)
+        letterbox_bottom = max(0, vh - displayed_h - letterbox_top)
+        if letterbox_top >= 2 and letterbox_bottom >= 2:
+            episode_area = (vx, vy, vw, letterbox_top)
+            title_area = (vx, vy + letterbox_top + displayed_h, vw, letterbox_bottom)
+        elif vw - displayed_w >= 4:
+            # Untuk sumber portrait di area yang lebih lebar, gunakan sisi kiri/kanan
+            # tanpa menggeser area teks atas/bawah secara tidak relevan.
+            pass
 
     episode_style = scale_style(tpl.episode_style)
     title_style = scale_style(tpl.title_style)
