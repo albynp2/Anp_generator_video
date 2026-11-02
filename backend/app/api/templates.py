@@ -78,25 +78,13 @@ def template_preview(
 
     with Image.open(tpl.image_path) as im:
         source_image = im.convert("RGBA")
-        if tpl.layout_mode == "auto":
-            base = ImageOps.fit(source_image, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
-        else:
-            scale = min(output_width / tpl.width, output_height / tpl.height)
-            scaled = (max(2, round(tpl.width * scale)), max(2, round(tpl.height * scale)))
-            resized = source_image.resize(scaled, Image.Resampling.LANCZOS)
-            base = Image.new("RGBA", canvas, (0, 0, 0, 255))
-            base.alpha_composite(resized, ((output_width - scaled[0]) // 2, (output_height - scaled[1]) // 2))
+        base = ImageOps.fit(source_image, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
     def map_area(area):
         x, y, w, h = area.as_tuple()
-        if tpl.layout_mode == "auto":
-            left, top = round(x * sx), round(y * sy)
-            right, bottom = round((x + w) * sx), round((y + h) * sy)
-            return (left, top, max(2, right-left), max(2, bottom-top))
-        scale = min(output_width / tpl.width, output_height / tpl.height)
-        ox = (output_width - round(tpl.width * scale)) // 2
-        oy = (output_height - round(tpl.height * scale)) // 2
-        return (ox + round(x*scale), oy + round(y*scale), max(2, round(w*scale)), max(2, round(h*scale)))
+        left, top = round(x * sx), round(y * sy)
+        right, bottom = round((x + w) * sx), round((y + h) * sy)
+        return (left, top, max(2, right-left), max(2, bottom-top))
 
     vx, vy, vw, vh = map_area(tpl.video_area)
     episode_area = map_area(tpl.episode_area)
@@ -159,7 +147,7 @@ async def preview_template(
     if not (2 <= cw <= 4096 and 2 <= ch <= 4096):
         raise AppError("Ukuran canvas preview harus 2–4096 px.", 400, "bad_template_config")
     if base.size != (cw, ch):
-        base = base.resize((cw, ch), Image.Resampling.LANCZOS)
+        base = ImageOps.fit(base, (cw, ch), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
     video_area = template_service.Area.from_dict(data.get("video_area") or {}, "video_area", cw, ch)
     episode_area = template_service.Area.from_dict(data.get("episode_area") or {}, "episode_area", cw, ch)
@@ -244,7 +232,10 @@ async def create_template(file: UploadFile = File(...), config: str = Form(...),
     tmp_img = img_path.with_suffix(".tmp.png")
     tmp_cfg = cfg_path.with_suffix(".tmp.json")
     try:
-        image.save(tmp_img, format="PNG")
+        normalized_image = ImageOps.fit(
+            image, (canvas_w, canvas_h), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
+        )
+        normalized_image.save(tmp_img, format="PNG")
         tmp_cfg.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         tmp_img.replace(img_path)
         tmp_cfg.replace(cfg_path)
