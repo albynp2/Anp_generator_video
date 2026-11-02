@@ -65,10 +65,18 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
   const draw = () => {
     const cv = canvasRef.current; if (!cv) return;
     const ctx = cv.getContext("2d"); ctx.clearRect(0, 0, cv.width, cv.height);
-    const baseImage = previewImageRef.current || imgRef.current;
-    if (baseImage) drawCover(ctx, baseImage, cv.width, cv.height);
+    const serverPreview = previewImageRef.current;
+    if (serverPreview) {
+      // Preview server sudah berisi background, video-area hitam, dan teks
+      // dalam urutan layer yang sama dengan renderer final.
+      ctx.drawImage(serverPreview, 0, 0, cv.width, cv.height);
+    } else {
+      const baseImage = imgRef.current;
+      if (baseImage) drawCover(ctx, baseImage, cv.width, cv.height);
+    }
     if (!natSize) return;
     const s = scaleRef.current;
+    if (!serverPreview) {
     const drawLabel = (text, area, size, color, bg = false) => {
       if (!area) return;
       const x = area.x * s, y = area.y * s, w = area.width * s, h = area.height * s;
@@ -100,6 +108,7 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
       ctx.fillStyle = "#000000";
       ctx.fillRect(video.x * s, video.y * s, video.width * s, video.height * s);
       ctx.restore();
+    }
     }
 
     if (mode === "manual") for (const { key, color, label: areaLabel } of AREA_DEFS) {
