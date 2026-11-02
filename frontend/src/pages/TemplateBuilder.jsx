@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, Check, Download, Flame, Loader2, MousePointerSquareDashed, Save, UploadCloud } from "lucide-react";
-import { saveTemplate, previewTemplate } from "../services/api.js";
+import { saveTemplate, previewTemplate, getTemplateConfig, getTemplateImageFile } from "../services/api.js";
 
 const AREA_DEFS = [
   { key: "video", label: "Video Area", color: "#ff6a00", desc: "Area untuk menempatkan video" },
@@ -34,7 +34,7 @@ function autoAreasFor(w, h) {
   return { video, episode, title };
 }
 
-export default function TemplateBuilder({ onBack }) {
+export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
   const canvasRef = useRef(null), fileRef = useRef(null), imgRef = useRef(null), previewImageRef = useRef(null), previewUrlRef = useRef(null), fileObjRef = useRef(null);
   const scaleRef = useRef(1), dragRef = useRef(null);
   const [natSize, setNatSize] = useState(null);
@@ -119,7 +119,7 @@ export default function TemplateBuilder({ onBack }) {
     return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
   }, [areas, active, natSize, mode, epSize, tiSize, fontTheme, textType, textColor, strokeColor, strokeWidth, shadowBlur, showTextBackground, backgroundColor, backgroundOpacity, backgroundPadding, backgroundRadius]);
 
-  const handleFile = (file) => {
+  const handleFile = (file, loadedConfig = null) => {
     if (!file) return;
     fileObjRef.current = file; setSaveMsg(null);
     const reader = new FileReader();
@@ -129,11 +129,53 @@ export default function TemplateBuilder({ onBack }) {
         imgRef.current = image; previewImageRef.current = null; if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null; } const w = image.naturalWidth, h = image.naturalHeight;
         const s = Math.min(640 / w, 860 / h, 1); scaleRef.current = s;
         const cv = canvasRef.current; cv.width = Math.max(1, Math.round(w * s)); cv.height = Math.max(1, Math.round(h * s));
-        setNatSize({ w, h }); setAreas(autoAreasFor(w, h)); setMode("auto"); setJsonOut(""); setHint("");
+        setNatSize({ w, h });
+        if (loadedConfig) {
+          const toArea = (a) => ({ x: Number(a?.x) || 0, y: Number(a?.y) || 0, width: Number(a?.width) || w, height: Number(a?.height) || h });
+          setAreas({ video: toArea(loadedConfig.video_area), episode: toArea(loadedConfig.episode_area), title: toArea(loadedConfig.title_area) });
+          setMode(loadedConfig.layout_mode === "manual" ? "manual" : "auto");
+          setName(loadedConfig.name || ""); setLabel(loadedConfig.label || "");
+          setEpFormat(loadedConfig.episode?.text_format || "{text}");
+          const font = loadedConfig.episode?.font || "";
+          const theme = Object.entries(FONT_THEMES).find(([, v]) => v.font === font)?.[0] || "cinematic";
+          setFontTheme(theme); setTextType(loadedConfig.episode?.style_type || "shadow");
+          setEpSize(loadedConfig.episode?.font_size || 20); setTiSize(loadedConfig.title?.font_size || 20);
+          setTextColor(loadedConfig.episode?.color || "#ffffff"); setStrokeColor(loadedConfig.episode?.stroke_color || "#171717");
+          setStrokeWidth(loadedConfig.episode?.stroke_width || 0);
+          setShadowBlur(loadedConfig.episode?.shadow?.blur || 0);
+          const bg = loadedConfig.episode?.background || {};
+          setShowTextBackground(!!bg.enabled); setBackgroundColor(bg.color || "#333333");
+          setBackgroundOpacity(Math.round((Number(bg.opacity ?? 0.1)) * 100));
+          setBackgroundPadding(bg.padding || 0); setBackgroundRadius(bg.radius || 0);
+          setActive("video");
+        } else {
+          setAreas(autoAreasFor(w, h)); setMode("auto"); setName(""); setLabel(""); setEpFormat("");
+        }
+        setJsonOut(""); setHint(""); setSaveMsg(null);
         requestAnimationFrame(draw);
       }; image.src = ev.target.result;
     }; reader.readAsDataURL(file);
   };
+  useEffect(() => {
+    if (!initialTemplateName) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingTemplate(true);
+      try {
+        const [config, imageFile] = await Promise.all([
+          getTemplateConfig(initialTemplateName),
+          getTemplateImageFile(initialTemplateName),
+        ]);
+        if (!cancelled) handleFile(imageFile, config);
+      } catch (err) {
+        if (!cancelled) setSaveMsg({ type: "error", text: err.message || "Gagal memuat template." });
+      } finally {
+        if (!cancelled) setLoadingTemplate(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [initialTemplateName]);
+
   const toXY = (evt) => { const cv = canvasRef.current, r = cv.getBoundingClientRect(), p = evt.touches ? evt.touches[0] : evt; return [clamp((p.clientX-r.left)*(cv.width/r.width),0,cv.width), clamp((p.clientY-r.top)*(cv.height/r.height),0,cv.height)]; };
   const normRect = (x0,y0,x1,y1) => {
     const s=scaleRef.current, cw=natSize?.w-(natSize?.w%2), ch=natSize?.h-(natSize?.h%2);
@@ -175,15 +217,17 @@ export default function TemplateBuilder({ onBack }) {
   const saveToServer = async (overwrite=false) => {
     if(!canGenerate){setHint("Pilih gambar template dan isi nama file terlebih dahulu.");return;}
     if(!fileObjRef.current){setSaveMsg({type:"error",text:"Gambar asli tidak ditemukan. Pilih ulang gambar template."});return;}
-    const {slug,config}=buildConfig();setJsonOut(JSON.stringify(config,null,2));setSaving(true);setSaveMsg(null);
+    const {slug,config}=buildConfig();
+    if (initialTemplateName && overwrite && slug !== initialTemplateName) { setSaveMsg({type:"error",text:"Untuk Simpan Perubahan, nama file harus tetap sama. Gunakan Simpan Sebagai Template Baru jika ingin nama berbeda."}); return; }
+    setJsonOut(JSON.stringify(config,null,2));setSaving(true);setSaveMsg(null);
     try{await saveTemplate(config,fileObjRef.current,overwrite);setSaveMsg({type:"ok",text:`Template ${slug} berhasil disimpan dan siap dipilih di dashboard.`});}
     catch(e){if(e.code==="template_exists")setSaveMsg({type:"conflict",text:e.message,slug});else setSaveMsg({type:"error",text:e.message});}
     finally{setSaving(false);}
   };
 
   return <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
-    <header className="mb-6 flex items-center gap-3"><button className="btn-ghost !px-3 !py-2.5" onClick={onBack}><ArrowLeft className="h-4 w-4"/>Kembali</button><div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-ember-600 to-gold-500 shadow-glow"><MousePointerSquareDashed className="h-6 w-6 text-ink-950"/></div><div><h1 className="font-display text-2xl leading-none tracking-wide"><span className="bg-gradient-to-r from-ember-400 to-gold-300 bg-clip-text text-transparent">Template Builder</span></h1><p className="text-xs text-stone-500">Atur area, font, dan gaya teks dengan preview realtime</p></div></header>
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <header className="mb-6 flex items-center gap-3"><button className="btn-ghost !px-3 !py-2.5" onClick={onBack}><ArrowLeft className="h-4 w-4"/>Kembali</button><div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-ember-600 to-gold-500 shadow-glow"><MousePointerSquareDashed className="h-6 w-6 text-ink-950"/></div><div><h1 className="font-display text-2xl leading-none tracking-wide"><span className="bg-gradient-to-r from-ember-400 to-gold-300 bg-clip-text text-transparent">Template Builder</span></h1><p className="text-xs text-stone-500">{initialTemplateName ? `Edit template: ${initialTemplateName}` : "Atur area, font, dan gaya teks dengan preview realtime"}</p></div></header>
+    {loadingTemplate ? <div className="panel p-8 text-center text-stone-300"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin"/>Memuat konfigurasi template...</div> : <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section className="panel space-y-4 p-4 sm:p-6"><div><label className="label">1. Pilih gambar template (PNG/JPG)</label><button className="btn-primary w-full" onClick={()=>fileRef.current?.click()}><UploadCloud className="h-4 w-4"/>Pilih Gambar</button><input ref={fileRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={e=>handleFile(e.target.files?.[0])}/></div>
         <div className="flex justify-center overflow-auto rounded-xl border border-ink-600 bg-ink-950 p-2"><canvas ref={canvasRef} width={640} height={860} className={`max-w-full rounded-lg ${mode === "manual" ? "cursor-crosshair" : "cursor-default"}`} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}/></div>
         <p className="text-center text-xs text-stone-500">{natSize?`Ukuran gambar asli: ${natSize.w} × ${natSize.h}px. Preview memakai renderer backend yang sama dengan hasil render.`:"Belum ada gambar dimuat."}</p>{previewError&&<p className="text-center text-xs text-red-300">Preview: {previewError}</p>}
@@ -197,11 +241,11 @@ export default function TemplateBuilder({ onBack }) {
           <div className="grid grid-cols-2 gap-3"><div><label className="label">Ukuran teks utama</label><input type="number" min="12" max="300" className="input" value={epSize} onChange={e=>setEpSize(e.target.value)}/></div><div><label className="label">Ukuran title</label><input type="number" min="12" max="300" className="input" value={tiSize} onChange={e=>setTiSize(e.target.value)}/></div><div><label className="label">Warna teks</label><input type="color" className="input h-11 p-1" value={textColor} onChange={e=>setTextColor(e.target.value)}/></div><div><label className="label">Warna outline</label><input type="color" className="input h-11 p-1" value={strokeColor} onChange={e=>setStrokeColor(e.target.value)}/></div><div><label className="label">Ketebalan outline</label><input type="number" min="0" max="12" className="input" value={strokeWidth} onChange={e=>setStrokeWidth(e.target.value)}/></div><div><label className="label">Shadow / glow blur</label><input type="number" min="0" max="40" className="input" value={shadowBlur} onChange={e=>setShadowBlur(e.target.value)}/></div></div>
           <label className="flex items-center gap-2 text-sm text-stone-200"><input type="checkbox" checked={showTextBackground} onChange={e=>setShowTextBackground(e.target.checked)}/> Aktifkan background teks</label><div className="grid grid-cols-2 gap-3"><div><label className="label">Warna background</label><input type="color" className="input h-11 p-1" value={backgroundColor} onChange={e=>setBackgroundColor(e.target.value)}/></div><div><label className="label">Transparansi (%)</label><input type="number" min="0" max="100" className="input" value={backgroundOpacity} onChange={e=>setBackgroundOpacity(e.target.value)}/></div><div><label className="label">Padding background</label><input type="number" min="0" max="100" className="input" value={backgroundPadding} onChange={e=>setBackgroundPadding(e.target.value)}/></div><div><label className="label">Radius sudut</label><input type="number" min="0" max="100" className="input" value={backgroundRadius} onChange={e=>setBackgroundRadius(e.target.value)}/></div></div><p className="text-[11px] text-stone-500">Semua perubahan gaya, ukuran, font, dan background langsung terlihat di preview gambar.</p>
         </div>
-        <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">5. Simpan Template</p><button className="btn-primary w-full" onClick={()=>saveToServer(false)} disabled={!canGenerate||saving}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}{saving?"Menyimpan…":"Simpan ke Server"}</button><button className="btn-ghost w-full" onClick={downloadOnly} disabled={!canGenerate}><Download className="h-4 w-4"/>Download JSON</button>
+        <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">5. Simpan Template</p>{initialTemplateName ? <><button className="btn-primary w-full" onClick={()=>saveToServer(true)} disabled={!canGenerate||saving}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}{saving?"Menyimpan…":"Simpan Perubahan"}</button><button className="btn-ghost w-full" onClick={()=>saveToServer(false)} disabled={!canGenerate||saving}><Save className="h-4 w-4"/>Simpan Sebagai Template Baru</button></> : <button className="btn-primary w-full" onClick={()=>saveToServer(false)} disabled={!canGenerate||saving}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}{saving?"Menyimpan…":"Simpan ke Server"}</button>}<button className="btn-ghost w-full" onClick={downloadOnly} disabled={!canGenerate}><Download className="h-4 w-4"/>Download JSON</button>
           {saveMsg?.type==="ok"&&<div className="flex gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-300"><Check className="h-4 w-4"/>{saveMsg.text}</div>}{saveMsg?.type==="error"&&<div className="flex gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-300"><AlertTriangle className="h-4 w-4"/>{saveMsg.text}</div>}{saveMsg?.type==="conflict"&&<div className="space-y-2 text-xs text-amber-200">{saveMsg.text}<button className="btn-ghost w-full" onClick={()=>saveToServer(true)} disabled={saving}>Timpa template {saveMsg.slug}</button></div>}{hint&&<p className="text-xs text-gold-300">{hint}</p>}{jsonOut&&<details><summary className="cursor-pointer text-xs text-stone-400">Lihat JSON</summary><textarea readOnly value={jsonOut} className="input mt-2 min-h-[140px] font-mono text-xs"/></details>}
         </div>
         <div className="panel p-4 text-xs text-stone-400"><p className="mb-2 flex items-center gap-1.5 font-semibold text-gold-400"><Flame className="h-3.5 w-3.5"/>Catatan</p>Template tersimpan dengan gambar resolusi asli. Mode Auto menghitung area berdasarkan rasio gambar; mode Manual menggunakan koordinat yang lu atur sendiri.</div>
       </aside>
-    </div>
+    </div>}
   </div>;
 }
