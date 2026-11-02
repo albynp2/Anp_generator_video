@@ -78,6 +78,27 @@ class Template:
     layout_mode: str = "manual"
 
 
+def contain_geometry(source_w: int, source_h: int, target_w: int, target_h: int):
+    """Return one shared Contain transform for every template layer."""
+    scale = min(target_w / source_w, target_h / source_h)
+    scaled_w = max(2, int(round(source_w * scale)))
+    scaled_h = max(2, int(round(source_h * scale)))
+    offset_x = (target_w - scaled_w) // 2
+    offset_y = (target_h - scaled_h) // 2
+    return scale, scaled_w, scaled_h, offset_x, offset_y
+
+
+def map_area_contain(area: Area, source_w: int, source_h: int, target_w: int, target_h: int):
+    """Map Builder JSON area coordinates through the shared Contain transform."""
+    scale, _, _, offset_x, offset_y = contain_geometry(source_w, source_h, target_w, target_h)
+    x, y, width, height = area.as_tuple()
+    left = max(0, min(target_w - 2, offset_x + round(x * scale)))
+    top = max(0, min(target_h - 2, offset_y + round(y * scale)))
+    right = max(left + 2, min(target_w, offset_x + round((x + width) * scale)))
+    bottom = max(top + 2, min(target_h, offset_y + round((y + height) * scale)))
+    return left, top, right - left, bottom - top
+
+
 def _load(config_path: Path) -> Template:
     try:
         data = json.loads(config_path.read_text(encoding="utf-8"))
