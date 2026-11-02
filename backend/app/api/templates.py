@@ -46,11 +46,14 @@ def template_image(name: str):
 
 
 @router.get("/templates/{name}/preview")
-def template_preview(name: str):
-    """Preview komposit template: background + video viewport + gaya teks tersimpan.
+def template_preview(
+    name: str,
+    episode_text: str = "Contoh teks utama",
+    title_text: str = "Judul video",
+):
+    """Preview komposit template dengan teks aktual dari form dashboard.
 
-    Dashboard menggunakan endpoint ini sebelum render agar pilihan template benar-benar
-    menampilkan konfigurasi dari Template Builder, bukan gambar PNG polos.
+    Layout dan styling tetap memakai renderer Pillow yang sama dengan hasil render final.
     """
     tpl = template_service.get_template(name)
     canvas = (tpl.width, tpl.height)
@@ -65,8 +68,8 @@ def template_preview(name: str):
     draw.text((vw // 2, vh // 2), "VIDEO AREA", fill=(190, 190, 198, 220), anchor="mm")
     base.alpha_composite(video_box, (vx, vy))
 
-    ep = text_renderer.render_episode("Contoh teks utama", tpl.episode_style, canvas, tpl.episode_area.as_tuple())
-    title = text_renderer.render_title("Judul video", tpl.title_style, canvas, tpl.title_area.as_tuple())
+    ep = text_renderer.render_episode(episode_text or "Contoh teks utama", tpl.episode_style, canvas, tpl.episode_area.as_tuple())
+    title = text_renderer.render_title(title_text or "Judul video", tpl.title_style, canvas, tpl.title_area.as_tuple())
     base.alpha_composite(ep.image, (ep.x, ep.y))
     base.alpha_composite(title.image, (title.x, title.y))
 
