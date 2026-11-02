@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, JSONResponse
 from PIL import Image, ImageDraw, ImageOps
 
 from ..config import settings
@@ -38,6 +38,18 @@ def templates():
             for t in items
         ]
     }
+
+
+@router.get("/templates/{name}/config")
+def template_config(name: str):
+    """Ambil konfigurasi lengkap untuk membuka template di mode Edit."""
+    tpl = template_service.get_template(name)
+    config_path = settings.template_configs_dir / f"{tpl.name}.json"
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AppError("Konfigurasi template tidak bisa dibaca.", 500, "bad_template_config", detail=str(exc))
+    return JSONResponse(content=data, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/templates/{name}/image")
