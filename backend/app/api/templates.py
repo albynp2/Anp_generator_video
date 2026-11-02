@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import FileResponse, Response
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from ..config import settings
 from ..services import template_service, text_renderer
@@ -31,6 +31,7 @@ def templates():
                 "label": t.label,
                 "width": t.width,
                 "height": t.height,
+                "layout_mode": t.layout_mode,
                 "video_area": {"x": t.video_area.x, "y": t.video_area.y, "width": t.video_area.width, "height": t.video_area.height},
                 "preview_url": f"/api/templates/{t.name}/image",
             }
@@ -53,26 +54,41 @@ def template_preview(
     fit: str = "cover",
     source_width: int = 0,
     source_height: int = 0,
+    output_width: int = 1080,
+    output_height: int = 1920,
 ):
-    """Preview komposit template dengan teks aktual dari form dashboard.
-
-    Layout dan styling tetap memakai renderer Pillow yang sama dengan hasil render final.
-    """
+    """Preview template mengikuti ukuran output dan komposisi renderer final."""
     tpl = template_service.get_template(name)
-    canvas = (tpl.width, tpl.height)
+    output_width = max(2, min(4096, int(output_width or 1080)))
+    output_height = max(2, min(4096, int(output_height or 1920)))
+    canvas = (output_width, output_height)
+    sx, sy = output_width / tpl.width, output_height / tpl.height
+
     with Image.open(tpl.image_path) as im:
-        base = im.convert("RGBA")
-        if base.size != canvas:
-            base = base.resize(canvas, Image.Resampling.LANCZOS)
+        source_image = im.convert("RGBA")
+        if tpl.layout_mode == "auto":
+            base = ImageOps.fit(source_image, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+        else:
+            scale = min(output_width / tpl.width, output_height / tpl.height)
+            scaled = (max(2, round(tpl.width * scale)), max(2, round(tpl.height * scale)))
+            resized = source_image.resize(scaled, Image.Resampling.LANCZOS)
+            base = Image.new("RGBA", canvas, (0, 0, 0, 255))
+            base.alpha_composite(resized, ((output_width - scaled[0]) // 2, (output_height - scaled[1]) // 2))
 
-    vx, vy, vw, vh = tpl.video_area.as_tuple()
-    video_box = Image.new("RGBA", (vw, vh), (12, 12, 15, 245))
-    draw = ImageDraw.Draw(video_box)
-    draw.text((vw // 2, vh // 2), "VIDEO AREA", fill=(190, 190, 198, 220), anchor="mm")
-    base.alpha_composite(video_box, (vx, vy))
+    def map_area(area):
+        x, y, w, h = area.as_tuple()
+        if tpl.layout_mode == "auto":
+            left, top = round(x * sx), round(y * sy)
+            right, bottom = round((x + w) * sx), round((y + h) * sy)
+            return (left, top, max(2, right-left), max(2, bottom-top))
+        scale = min(output_width / tpl.width, output_height / tpl.height)
+        ox = (output_width - round(tpl.width * scale)) // 2
+        oy = (output_height - round(tpl.height * scale)) // 2
+        return (ox + round(x*scale), oy + round(y*scale), max(2, round(w*scale)), max(2, round(h*scale)))
 
-    episode_area = tpl.episode_area.as_tuple()
-    title_area = tpl.title_area.as_tuple()
+    vx, vy, vw, vh = map_area(tpl.video_area)
+    episode_area = map_area(tpl.episode_area)
+    title_area = map_area(tpl.title_area)
     if fit == "contain" and source_width > 0 and source_height > 0:
         contain_scale = min(vw / source_width, vh / source_height)
         displayed_h = max(2, round(source_height * contain_scale))
@@ -82,16 +98,20 @@ def template_preview(
             episode_area = (vx, vy, vw, letterbox_top)
             title_area = (vx, vy + letterbox_top + displayed_h, vw, letterbox_bottom)
 
-    ep = text_renderer.render_episode(episode_text or "Contoh teks utama", tpl.episode_style, canvas, episode_area)
-    title = text_renderer.render_title(title_text or "Judul video", tpl.title_style, canvas, title_area)
+    episode_style, title_style = tpl.episode_style, tpl.title_style
+    if tpl.layout_mode == "auto" and fit == "contain":
+        from dataclasses import replace
+        episode_style = replace(episode_style, background={**(episode_style.background or {}), "enabled": False})
+        title_style = replace(title_style, background={**(title_style.background or {}), "enabled": False})
+
+    ep = text_renderer.render_episode(episode_text or "Contoh teks utama", episode_style, canvas, episode_area)
+    title = text_renderer.render_title(title_text or "Judul video", title_style, canvas, title_area)
     base.alpha_composite(ep.image, (ep.x, ep.y))
     base.alpha_composite(title.image, (title.x, title.y))
 
     out = io.BytesIO()
     base.convert("RGB").save(out, format="PNG", optimize=False)
     return Response(content=out.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
-
-
 
 
 @router.post("/templates/preview")
