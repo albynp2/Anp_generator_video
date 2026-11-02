@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable
 
-from PIL import Image, ImageOps
+from PIL import Image
 
 from ..config import settings
 from ..models.schemas import GenerateRequest
@@ -78,7 +78,7 @@ def prepare(req: GenerateRequest) -> ClipSpec:
     template = template_service.get_template(parse_template_name(req.template or "default"))
     fit = "contain"
     if fit not in FIT_MODES:
-        raise AppError("Video fit harus 'cover' atau 'contain'.", 400, "bad_fit")
+        raise AppError("Video Fit saat ini hanya mendukung Contain.", 400, "bad_fit")
     video_layout = (req.video_layout or "template_background").strip().lower()
     if video_layout not in {"template_background", "full_screen"}:
         raise AppError("Layout video tidak valid.", 400, "bad_video_layout")
