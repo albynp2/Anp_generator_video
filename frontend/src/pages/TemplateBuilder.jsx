@@ -18,7 +18,14 @@ const STYLE_TYPES = [
   ["plain", "Normal"], ["bold", "Bold"], ["outline", "Outline"],
   ["shadow", "Shadow / bayangan"], ["glow", "Glow / bercahaya"], ["fire", "Fire / api"],
 ];
+const CANVAS_W = 1080, CANVAS_H = 1920;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+function drawCover(ctx, image, width, height) {
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const sw = width / scale, sh = height / scale;
+  const sx = (image.naturalWidth - sw) / 2, sy = (image.naturalHeight - sh) / 2;
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, width, height);
+}
 function autoAreasFor(w, h) {
   // Layout generik: video di tengah, teks utama di atas, judul di bawah.
   const vertical = h >= w;
@@ -53,12 +60,12 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
   const [hint, setHint] = useState(""), [jsonOut, setJsonOut] = useState(""), [saving, setSaving] = useState(false), [saveMsg, setSaveMsg] = useState(null), [previewError, setPreviewError] = useState("");
   const [loadingTemplate, setLoadingTemplate] = useState(false);
 
-  const currentAreas = natSize ? (mode === "auto" ? autoAreasFor(natSize.w, natSize.h) : areas) : areas;
+  const currentAreas = natSize ? (mode === "auto" ? autoAreasFor(CANVAS_W, CANVAS_H) : areas) : areas;
   const draw = () => {
     const cv = canvasRef.current; if (!cv) return;
     const ctx = cv.getContext("2d"); ctx.clearRect(0, 0, cv.width, cv.height);
     const baseImage = previewImageRef.current || imgRef.current;
-    if (baseImage) ctx.drawImage(baseImage, 0, 0, cv.width, cv.height);
+    if (baseImage) drawCover(ctx, baseImage, cv.width, cv.height);
     if (!natSize) return;
     const s = scaleRef.current;
     const drawLabel = (text, area, size, color, bg = false) => {
@@ -127,9 +134,9 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
     reader.onload = (ev) => {
       const image = new Image();
       image.onload = () => {
-        imgRef.current = image; previewImageRef.current = null; if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null; } const w = image.naturalWidth, h = image.naturalHeight;
-        const s = Math.min(640 / w, 860 / h, 1); scaleRef.current = s;
-        const cv = canvasRef.current; cv.width = Math.max(1, Math.round(w * s)); cv.height = Math.max(1, Math.round(h * s));
+        imgRef.current = image; previewImageRef.current = null; if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null; } const w = CANVAS_W, h = CANVAS_H;
+        const s = Math.min(640 / w, 860 / h); scaleRef.current = s;
+        const cv = canvasRef.current; cv.width = Math.round(w * s); cv.height = Math.round(h * s);
         setNatSize({ w, h });
         if (loadedConfig) {
           const toArea = (a) => ({ x: Number(a?.x) || 0, y: Number(a?.y) || 0, width: Number(a?.width) || w, height: Number(a?.height) || h });
@@ -179,7 +186,7 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
 
   const toXY = (evt) => { const cv = canvasRef.current, r = cv.getBoundingClientRect(), p = evt.touches ? evt.touches[0] : evt; return [clamp((p.clientX-r.left)*(cv.width/r.width),0,cv.width), clamp((p.clientY-r.top)*(cv.height/r.height),0,cv.height)]; };
   const normRect = (x0,y0,x1,y1) => {
-    const s=scaleRef.current, cw=natSize?.w-(natSize?.w%2), ch=natSize?.h-(natSize?.h%2);
+    const s=scaleRef.current, cw=CANVAS_W, ch=CANVAS_H;
     const left=Math.min(x0,x1), top=Math.min(y0,y1);
     const x=clamp(Math.round(left/s),0,Math.max(0,cw-2)), y=clamp(Math.round(top/s),0,Math.max(0,ch-2));
     const right=clamp(Math.round(Math.max(x0,x1)/s),x+2,cw), bottom=clamp(Math.round(Math.max(y0,y1)/s),y+2,ch);
@@ -193,7 +200,7 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
     const slug = name.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"-");
     // Canvas H.264 harus genap. Hitung Auto Area dari dimensi canvas final,
     // bukan ukuran gambar mentah, agar tidak overflow saat gambar berukuran ganjil.
-    const w=natSize.w-(natSize.w%2), h=natSize.h-(natSize.h%2), font=FONT_THEMES[fontTheme];
+    const w=CANVAS_W, h=CANVAS_H, font=FONT_THEMES[fontTheme];
     const sourceAreas = mode === "auto" ? autoAreasFor(w, h) : areas;
     const fitArea = (a) => {
       if (!a) return a;
@@ -231,7 +238,7 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
     {loadingTemplate ? <div className="panel p-8 text-center text-stone-300"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin"/>Memuat konfigurasi template...</div> : <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section className="panel space-y-4 p-4 sm:p-6"><div><label className="label">1. Pilih gambar template (PNG/JPG)</label><button className="btn-primary w-full" onClick={()=>fileRef.current?.click()}><UploadCloud className="h-4 w-4"/>Pilih Gambar</button><input ref={fileRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={e=>handleFile(e.target.files?.[0])}/></div>
         <div className="flex justify-center overflow-auto rounded-xl border border-ink-600 bg-ink-950 p-2"><canvas ref={canvasRef} width={640} height={860} className={`max-w-full rounded-lg ${mode === "manual" ? "cursor-crosshair" : "cursor-default"}`} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}/></div>
-        <p className="text-center text-xs text-stone-500">{natSize?`Ukuran gambar asli: ${natSize.w} × ${natSize.h}px. Preview memakai renderer backend yang sama dengan hasil render.`:"Belum ada gambar dimuat."}</p>{previewError&&<p className="text-center text-xs text-red-300">Preview: {previewError}</p>}
+        <p className="text-center text-xs text-stone-500">{natSize?`Canvas template: 1080 × 1920px (9:16). Gambar menggunakan Cover terpusat; area Auto dan Manual memakai koordinat canvas ini.`:"Belum ada gambar dimuat."}</p>{previewError&&<p className="text-center text-xs text-red-300">Preview: {previewError}</p>}
       </section>
       <aside className="space-y-5">
         <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">2. Area video & teks</p><label className="label">Mode Template</label><select className="input" value={mode} onChange={e=>{const next=e.target.value;setMode(next);if(next==="auto"){setFontTheme("cinematic");setTextType("shadow");setEpSize(20);setTiSize(20);setTextColor("#ffffff");setStrokeColor("#171717");setStrokeWidth(2);setShadowBlur(0);setShowTextBackground(true);setBackgroundColor("#333333");setBackgroundOpacity(10);setBackgroundPadding(0);setBackgroundRadius(0);}}}><option value="auto">Auto Template</option><option value="manual">Manual Template</option></select>
