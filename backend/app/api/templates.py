@@ -51,6 +51,8 @@ def template_preview(
     episode_text: str = "Contoh teks utama",
     title_text: str = "Judul video",
     fit: str = "cover",
+    source_width: int = 0,
+    source_height: int = 0,
 ):
     """Preview komposit template dengan teks aktual dari form dashboard.
 
@@ -71,12 +73,14 @@ def template_preview(
 
     episode_area = tpl.episode_area.as_tuple()
     title_area = tpl.title_area.as_tuple()
-    if (fit or "cover").strip().lower() == "contain" and tpl.name == "default":
-        top_h = max(2, vy)
-        bottom_y = min(tpl.height - 2, vy + vh)
-        bottom_h = max(2, tpl.height - bottom_y)
-        episode_area = (episode_area[0], 0, episode_area[2], top_h)
-        title_area = (title_area[0], bottom_y, title_area[2], bottom_h)
+    if (fit == "contain" and source_width > 0 and source_height > 0:
+        contain_scale = min(vw / source_width, vh / source_height)
+        displayed_h = max(2, round(source_height * contain_scale))
+        letterbox_top = max(0, (vh - displayed_h) // 2)
+        letterbox_bottom = max(0, vh - displayed_h - letterbox_top)
+        if letterbox_top >= 2 and letterbox_bottom >= 2:
+            episode_area = (vx, vy, vw, letterbox_top)
+            title_area = (vx, vy + letterbox_top + displayed_h, vw, letterbox_bottom)
 
     ep = text_renderer.render_episode(episode_text or "Contoh teks utama", tpl.episode_style, canvas, episode_area)
     title = text_renderer.render_title(title_text or "Judul video", tpl.title_style, canvas, title_area)
