@@ -63,69 +63,96 @@ def template_preview(
     name: str,
     episode_text: str = "",
     title_text: str = "",
-    fit: str = "cover",
+    fit: str = "contain",
     source_width: int = 0,
     source_height: int = 0,
     output_width: int = 1080,
     output_height: int = 1920,
 ):
-    """Preview template mengikuti ukuran output dan komposisi renderer final."""
+    """Preview template memakai pemetaan area dan skala teks yang sama dengan renderer final."""
+    from dataclasses import replace
+
     tpl = template_service.get_template(name)
     output_width = max(2, min(4096, int(output_width or 1080)))
     output_height = max(2, min(4096, int(output_height or 1920)))
     canvas = (output_width, output_height)
-    sx, sy = output_width / tpl.width, output_height / tpl.height
 
+    # Renderer final selalu memakai background Cover. Auto area mengikuti
+    # peregangan koordinat canvas; Manual area mempertahankan rasio template
+    # dengan pemetaan Contain (termasuk offset letterbox) seperti video_processor.
     with Image.open(tpl.image_path) as im:
-        source_image = im.convert("RGBA")
-        base = ImageOps.fit(source_image, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+        base = ImageOps.fit(
+            im.convert("RGBA"), canvas,
+            method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
+        )
 
-    def map_area(area):
-        x, y, w, h = area.as_tuple()
-        left, top = round(x * sx), round(y * sy)
-        right, bottom = round((x + w) * sx), round((y + h) * sy)
-        return (left, top, max(2, right-left), max(2, bottom-top))
+    if tpl.layout_mode == "auto":
+        sx, sy = output_width / tpl.width, output_height / tpl.height
+        def map_area(area):
+            x, y, w, h = area.as_tuple()
+            left, top = round(x * sx), round(y * sy)
+            right, bottom = round((x + w) * sx), round((y + h) * sy)
+            return (left, top, max(2, right - left), max(2, bottom - top))
+        scale = min(output_width / tpl.width, output_height / tpl.height)
+    else:
+        scale = min(output_width / tpl.width, output_height / tpl.height)
+        scaled_w = max(2, int(round(tpl.width * scale)))
+        scaled_h = max(2, int(round(tpl.height * scale)))
+        offset_x = (output_width - scaled_w) // 2
+        offset_y = (output_height - scaled_h) // 2
 
-    vx, vy, vw, vh = map_area(tpl.video_area)
-    episode_area = map_area(tpl.episode_area)
-    title_area = map_area(tpl.title_area)
-    if fit == "contain" and source_width > 0 and source_height > 0:
-        contain_scale = min(vw / source_width, vh / source_height)
-        displayed_w = max(2, round(source_width * contain_scale))
-        displayed_h = max(2, round(source_height * contain_scale))
-        letterbox_left = max(0, (vw - displayed_w) // 2)
-        letterbox_right = max(0, vw - displayed_w - letterbox_left)
-        letterbox_top = max(0, (vh - displayed_h) // 2)
-        letterbox_bottom = max(0, vh - displayed_h - letterbox_top)
-        # Letakkan teks pada ruang letterbox yang benar-benar tersedia.
-        if letterbox_top >= 2 or letterbox_bottom >= 2:
-            if letterbox_top >= letterbox_bottom and letterbox_top >= 2:
-                episode_area = (vx, vy, vw, letterbox_top)
-            elif letterbox_bottom >= 2:
-                title_area = (vx, vy + letterbox_top + displayed_h, vw, letterbox_bottom)
-        elif letterbox_left >= 2 or letterbox_right >= 2:
-            if letterbox_left >= letterbox_right and letterbox_left >= 2:
-                episode_area = (vx, vy, letterbox_left, vh)
-            elif letterbox_right >= 2:
-                title_area = (vx + letterbox_left + displayed_w, vy, letterbox_right, vh)
+        def map_area(area):
+            x, y, w, h = area.as_tuple()
+            left = max(0, min(output_width - 2, offset_x + round(x * scale)))
+            top = max(0, min(output_height - 2, offset_y + round(y * scale)))
+            right = max(left + 2, min(output_width, offset_x + round((x + w) * scale)))
+            bottom = max(top + 2, min(output_height, offset_y + round((y + h) * scale)))
+            return (left, top, right - left, bottom - top)
 
-    episode_style, title_style = tpl.episode_style, tpl.title_style
+    def scale_style(style):
+        shadow = dict(style.shadow) if isinstance(style.shadow, dict) else style.shadow
+        if shadow:
+            if isinstance(shadow.get("offset"), (list, tuple)):
+                shadow["offset"] = [round(v * scale) for v in shadow["offset"]]
+            if "blur" in shadow:
+                shadow["blur"] = max(0, round(shadow["blur"] * scale))
+        background = dict(style.background or {})
+        for key in ("padding", "radius"):
+            if key in background:
+                background[key] = max(0, round(background[key] * scale))
+        fire = dict(style.fire or {})
+        for key in ("spread", "lift"):
+            if key in fire:
+                fire[key] = max(0, round(fire[key] * scale))
+        return replace(
+            style,
+            font_size=max(1, round(style.font_size * scale)),
+            min_font_size=max(1, round(style.min_font_size * scale)),
+            stroke_width=max(0, round(style.stroke_width * scale)),
+            max_width=round(style.max_width * scale) if style.max_width else None,
+            shadow=shadow, background=background, fire=fire,
+        )
+
+    episode_style = scale_style(tpl.episode_style)
+    title_style = scale_style(tpl.title_style)
     if tpl.layout_mode == "auto" and fit == "contain":
-        from dataclasses import replace
         episode_style = replace(episode_style, background={**(episode_style.background or {}), "enabled": False})
         title_style = replace(title_style, background={**(title_style.background or {}), "enabled": False})
 
     if episode_text.strip():
-        ep = text_renderer.render_episode(episode_text, episode_style, canvas, episode_area)
+        ep = text_renderer.render_episode(
+            episode_text, episode_style, canvas, map_area(tpl.episode_area)
+        )
         base.alpha_composite(ep.image, (ep.x, ep.y))
     if title_text.strip():
-        title = text_renderer.render_title(title_text, title_style, canvas, title_area)
+        title = text_renderer.render_title(
+            title_text, title_style, canvas, map_area(tpl.title_area)
+        )
         base.alpha_composite(title.image, (title.x, title.y))
 
     out = io.BytesIO()
     base.convert("RGB").save(out, format="PNG", optimize=False)
     return Response(content=out.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
-
 
 @router.get("/templates/{name}/text-preview")
 def template_text_preview(
