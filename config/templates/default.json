@@ -92,5 +92,6 @@
       "sparks": 0,
       "brightness": 0.68
     }
-  }
+  },
+  "layout_mode": "manual"
 }
