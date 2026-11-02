@@ -43,8 +43,6 @@ def parse_episode(value) -> str:
     raw = unicodedata.normalize("NFC", str(value) if value is not None else "")
     raw = _CONTROL.sub(" ", raw)
     raw = re.sub(r"\s+", " ", raw).strip()
-    if not raw:
-        raise AppError("Teks utama tidak boleh kosong.", 400, "empty_text")
     if len(raw) > 120:
         raise AppError("Teks utama maksimal 120 karakter.", 400, "text_too_long")
     return raw
@@ -54,8 +52,6 @@ def clean_title(value, max_chars: int) -> str:
     text = unicodedata.normalize("NFC", value or "")
     text = _CONTROL.sub(" ", text)
     text = re.sub(r"\s+", " ", text).strip()
-    if not text:
-        raise AppError("Title tidak boleh kosong.", 400, "empty_title")
     if len(text) > max_chars:
         raise AppError(
             f"Title terlalu panjang (maksimal {max_chars} karakter).", 400, "title_too_long"
