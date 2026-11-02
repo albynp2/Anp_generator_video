@@ -49,7 +49,7 @@ class RenderSpec:
     video_area: tuple        # (x, y, w, h)
     episode_pos: tuple       # (x, y)
     title_pos: tuple         # (x, y)
-    fit: str                 # "cover" | "contain"
+    fit: str                 # "contain" only
     has_audio: bool
     video_layout: str = "template_background"
     background_mode: str = "blur"  # "blur" untuk template default, "image" untuk template builder
