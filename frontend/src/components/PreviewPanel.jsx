@@ -85,7 +85,7 @@ export default function PreviewPanel({
           <video key={job.job_id} className="h-full w-full bg-black object-contain" src={previewUrl(job.job_id)} controls playsInline />
         ) : (
           <>
-            {template && <img src={templatePreviewUrl(template, episodeText, titleText)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {template && <img src={templatePreviewUrl(template, episodeText, titleText, fit)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
             {thumbnailUrl && template && (
               <img
                 src={thumbnailUrl}
