@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, Flame, Film, Trash2 } from "lucide-react";
 import ProgressBar from "./ProgressBar.jsx";
 import { deleteJob, downloadUrl, previewUrl, templatePreviewUrl } from "../services/api.js";
 
 export default function PreviewPanel({
   job, template, sourcePreviewUrl, fit = "cover", videoArea, templateWidth = 1080, templateHeight = 1920,
-  startSeconds = 0, endSeconds, retentionMinutes, outputWidth = 1080, outputHeight = 1920, onDeleted
+  episodeText = "", titleText = "", startSeconds = 0, endSeconds, retentionMinutes,
+  outputWidth = 1080, outputHeight = 1920, onDeleted
 }) {
   const [deleting, setDeleting] = useState(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
   const status = job?.status;
   const busy = status === "queued" || status === "processing";
   const done = status === "completed";
@@ -18,6 +20,52 @@ export default function PreviewPanel({
     width: `${(area.width / templateWidth) * 100}%`,
     height: `${(area.height / templateHeight) * 100}%`,
   };
+
+  // Ambil satu frame dari video sumber untuk preview statis. Tidak ada playback.
+  useEffect(() => {
+    if (!sourcePreviewUrl) {
+      setThumbnailUrl("");
+      return undefined;
+    }
+    let active = true;
+    let objectUrl = "";
+    const video = document.createElement("video");
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+    const capture = () => {
+      if (!active || !video.videoWidth || !video.videoHeight) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!active || !blob) return;
+        objectUrl = URL.createObjectURL(blob);
+        setThumbnailUrl(objectUrl);
+      }, "image/jpeg", 0.92);
+    };
+    video.addEventListener("loadedmetadata", () => {
+      const target = Math.max(0, Number(startSeconds) || 0);
+      if (target > 0 && target < (video.duration || target + 1)) video.currentTime = target;
+      else capture();
+    });
+    video.addEventListener("seeked", capture);
+    video.addEventListener("loadeddata", () => {
+      if (video.currentTime === 0 || video.currentTime === startSeconds) capture();
+    });
+    video.src = sourcePreviewUrl;
+    video.load();
+    return () => {
+      active = false;
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [sourcePreviewUrl, startSeconds]);
 
   const remove = async () => {
     setDeleting(true);
@@ -34,21 +82,16 @@ export default function PreviewPanel({
 
       <div className="relative mx-auto w-full max-w-[380px] overflow-hidden rounded-xl border border-ink-600 bg-black" style={{ aspectRatio: `${outputWidth} / ${outputHeight}` }}>
         {done ? (
-          <video key={job.job_id} className="h-full w-full bg-black object-contain" src={previewUrl(job.job_id)} controls playsInline autoPlay loop />
+          <video key={job.job_id} className="h-full w-full bg-black object-contain" src={previewUrl(job.job_id)} controls playsInline />
         ) : (
           <>
-            {template && <img src={templatePreviewUrl(template)} alt="Preview template tersimpan" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
-            {sourcePreviewUrl && template && (
-              <video
-                key={sourcePreviewUrl}
-                src={sourcePreviewUrl}
+            {template && <img src={templatePreviewUrl(template, episodeText, titleText)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {thumbnailUrl && template && (
+              <img
+                src={thumbnailUrl}
+                alt="Gambar video"
                 className="absolute"
                 style={{ ...areaStyle, objectFit: fit === "contain" ? "contain" : "cover" }}
-                muted
-                playsInline
-                autoPlay
-                onLoadedMetadata={(event) => { event.currentTarget.currentTime = Math.max(0, startSeconds); }}
-                onTimeUpdate={(event) => { if (endSeconds > startSeconds && event.currentTarget.currentTime >= endSeconds) event.currentTarget.currentTime = Math.max(0, startSeconds); }}
               />
             )}
             {busy && <div className="absolute inset-0 z-10 grid place-items-center bg-black/20"><Flame className="h-10 w-10 animate-pulse text-ember-400" /></div>}
@@ -57,7 +100,7 @@ export default function PreviewPanel({
       </div>
 
       {sourcePreviewUrl && !done && (
-        <p className="mt-2 text-center text-[11px] text-stone-500">Preview langsung · Video Fit: {fit === "contain" ? "Contain" : "Cover"}</p>
+        <p className="mt-2 text-center text-[11px] text-stone-500">Preview gambar statis · Teks utama &amp; title mengikuti input · Video Fit: {fit === "contain" ? "Contain" : "Cover"}</p>
       )}
 
       {busy && <div className="mt-4"><ProgressBar label={status === "queued" ? "Menunggu antrean" : job.stage || "Rendering Video"} percent={job.progress} /></div>}
