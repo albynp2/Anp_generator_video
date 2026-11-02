@@ -12,7 +12,7 @@ export default function TemplateBuilderEntry({ onBack, onCreate, onEdit }) {
     setError("");
     try {
       const data = await getTemplates();
-      setTemplates(data.templates || []);
+      setTemplates((data.templates || []).filter((item) => item.name !== "default"));
     } catch (err) {
       setError(err.message || "Gagal memuat daftar template.");
     } finally {
