@@ -348,10 +348,7 @@ export default function Home({ onOpenBuilder }) {
                   {templates.length === 0 && (
                     <p className="mt-1 text-xs text-amber-300">Semua template sedang dihapus/nonaktif. Tambahkan PNG dan JSON template untuk mengaktifkan Generate Video.</p>
                   )}
-                </Field>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
+                  </Field>
                 <Field label="Resolusi Output" hint="Default Full HD 9:16 untuk Facebook, Instagram, YouTube Shorts, dan TikTok.">
                   <select className="input" value={form.outputPreset} disabled={busy}
                     onChange={(e) => {
@@ -372,21 +369,21 @@ export default function Home({ onOpenBuilder }) {
                     <option value="1080x1080">Square — 1080 × 1080 (1:1)</option>
                     <option value="custom">Custom</option>
                   </select>
+                  {form.outputPreset === "custom" ? (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <Field label="Width (px)">
+                        <input className="input" type="number" min="256" max="4096" step="2" value={form.outputWidth}
+                          disabled={busy} onChange={(e) => set("outputWidth")(e.target.value)} />
+                      </Field>
+                      <Field label="Height (px)">
+                        <input className="input" type="number" min="256" max="4096" step="2" value={form.outputHeight}
+                          disabled={busy} onChange={(e) => set("outputHeight")(e.target.value)} />
+                      </Field>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-xs text-stone-500">Output: {form.outputWidth} × {form.outputHeight} px</div>
+                  )}
                 </Field>
-                {form.outputPreset === "custom" ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Field label="Width (px)">
-                      <input className="input" type="number" min="256" max="4096" step="2" value={form.outputWidth}
-                        disabled={busy} onChange={(e) => set("outputWidth")(e.target.value)} />
-                    </Field>
-                    <Field label="Height (px)">
-                      <input className="input" type="number" min="256" max="4096" step="2" value={form.outputHeight}
-                        disabled={busy} onChange={(e) => set("outputHeight")(e.target.value)} />
-                    </Field>
-                  </div>
-                ) : (
-                  <div className="flex items-end pb-2 text-xs text-stone-500">Output: {form.outputWidth} × {form.outputHeight} px</div>
-                )}
               </div>
 
               <div className="space-y-4 rounded-xl border border-ink-600/70 bg-ink-900/60 p-3">
