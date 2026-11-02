@@ -14,12 +14,15 @@ export default function PreviewPanel({
   const status = job?.status;
   const busy = status === "queued" || status === "processing";
   const done = status === "completed";
-  const area = videoArea || { x: 0, y: outputHeight * 0.15, width: outputWidth, height: outputHeight * 0.7 };
+  const area = videoArea || { x: 0, y: 0, width: templateWidth, height: templateHeight };
+  const templateScale = Math.min(outputWidth / templateWidth, outputHeight / templateHeight);
+  const templateOffsetX = (outputWidth - templateWidth * templateScale) / 2;
+  const templateOffsetY = (outputHeight - templateHeight * templateScale) / 2;
   const areaStyle = {
-    left: `${(area.x / templateWidth) * 100}%`,
-    top: `${(area.y / templateHeight) * 100}%`,
-    width: `${(area.width / templateWidth) * 100}%`,
-    height: `${(area.height / templateHeight) * 100}%`,
+    left: `${(templateOffsetX + area.x * templateScale) / outputWidth * 100}%`,
+    top: `${(templateOffsetY + area.y * templateScale) / outputHeight * 100}%`,
+    width: `${(area.width * templateScale) / outputWidth * 100}%`,
+    height: `${(area.height * templateScale) / outputHeight * 100}%`,
   };
 
   // Ambil satu frame dari video sumber untuk preview statis. Tidak ada playback.
