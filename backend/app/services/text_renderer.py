@@ -380,6 +380,8 @@ def render_text(
 ) -> Layer:
     """Render `text` (auto-wrap + auto-fit) terpusat di dalam `area` (x, y, w, h)."""
     ax, ay, aw, ah = area
+    if not str(text or "").strip():
+        return Layer(Image.new("RGBA", (1, 1), (0, 0, 0, 0)), 0, 0)
     spread = int(style.fire["spread"]) if style.fire.get("enabled", True) else 0
     font, lines, line_h = _fit(text, style, aw, ah, spread)
     cx, cy = ax + aw / 2, ay + ah / 2
