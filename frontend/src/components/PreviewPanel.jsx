@@ -88,7 +88,10 @@ export default function PreviewPanel({
           <video key={job.job_id} className="h-full w-full bg-black object-contain" src={previewUrl(job.job_id)} controls playsInline />
         ) : (
           <>
-            {template && <img src={templatePreviewUrl(template, episodeText, titleText, "contain", sourceSize.width, sourceSize.height, outputWidth, outputHeight)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {template && template !== "default" && <img src={templatePreviewUrl(template, episodeText, titleText, "contain", sourceSize.width, sourceSize.height, outputWidth, outputHeight)} alt="Preview template" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {thumbnailUrl && template === "default" && (
+              <img src={thumbnailUrl} alt="Background blur preview" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-55 blur-xl" />
+            )}
             {thumbnailUrl && template && (
               <img
                 src={thumbnailUrl}
@@ -103,7 +106,7 @@ export default function PreviewPanel({
       </div>
 
       {sourcePreviewUrl && !done && (
-        <p className="mt-2 text-center text-[11px] text-stone-500">Preview gambar statis · Teks utama &amp; title mengikuti input · Video Fit: Contain</p>
+        <p className="mt-2 text-center text-[11px] text-stone-500">Preview gambar statis · Video Fit: Contain</p>
       )}
 
       {busy && <div className="mt-4"><ProgressBar label={status === "queued" ? "Menunggu antrean" : job.stage || "Rendering Video"} percent={job.progress} /></div>}
