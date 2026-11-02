@@ -61,8 +61,8 @@ def template_image(name: str):
 @router.get("/templates/{name}/preview")
 def template_preview(
     name: str,
-    episode_text: str = "Contoh teks utama",
-    title_text: str = "Judul video",
+    episode_text: str = "",
+    title_text: str = "",
     fit: str = "cover",
     source_width: int = 0,
     source_height: int = 0,
@@ -115,10 +115,12 @@ def template_preview(
         episode_style = replace(episode_style, background={**(episode_style.background or {}), "enabled": False})
         title_style = replace(title_style, background={**(title_style.background or {}), "enabled": False})
 
-    ep = text_renderer.render_episode(episode_text or "Contoh teks utama", episode_style, canvas, episode_area)
-    title = text_renderer.render_title(title_text or "Judul video", title_style, canvas, title_area)
-    base.alpha_composite(ep.image, (ep.x, ep.y))
-    base.alpha_composite(title.image, (title.x, title.y))
+    if episode_text.strip():
+        ep = text_renderer.render_episode(episode_text, episode_style, canvas, episode_area)
+        base.alpha_composite(ep.image, (ep.x, ep.y))
+    if title_text.strip():
+        title = text_renderer.render_title(title_text, title_style, canvas, title_area)
+        base.alpha_composite(title.image, (title.x, title.y))
 
     out = io.BytesIO()
     base.convert("RGB").save(out, format="PNG", optimize=False)
@@ -129,8 +131,8 @@ def template_preview(
 async def preview_template(
     file: UploadFile = File(...),
     config: str = Form(...),
-    episode_text: str = Form("Contoh teks utama"),
-    title_text: str = Form("Judul video"),
+    episode_text: str = Form(""),
+    title_text: str = Form(""),
 ):
     """Render preview dengan Pillow renderer yang sama dengan video final.
 
@@ -183,10 +185,12 @@ async def preview_template(
 
     episode_style = text_renderer.TextStyle.from_dict(data.get("episode"))
     title_style = text_renderer.TextStyle.from_dict(data.get("title"))
-    ep_layer = text_renderer.render_episode(episode_text or "Contoh teks utama", episode_style, (cw, ch), episode_area.as_tuple())
-    title_layer = text_renderer.render_title(title_text or "Judul video", title_style, (cw, ch), title_area.as_tuple())
-    base.alpha_composite(ep_layer.image, (ep_layer.x, ep_layer.y))
-    base.alpha_composite(title_layer.image, (title_layer.x, title_layer.y))
+    if episode_text.strip():
+        ep_layer = text_renderer.render_episode(episode_text, episode_style, (cw, ch), episode_area.as_tuple())
+        base.alpha_composite(ep_layer.image, (ep_layer.x, ep_layer.y))
+    if title_text.strip():
+        title_layer = text_renderer.render_title(title_text, title_style, (cw, ch), title_area.as_tuple())
+        base.alpha_composite(title_layer.image, (title_layer.x, title_layer.y))
 
     out = io.BytesIO()
     base.convert("RGB").save(out, format="PNG", optimize=False)
