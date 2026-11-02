@@ -27,7 +27,7 @@ from .template_service import Template
 log = logging.getLogger("anp-video-generator.processor")
 
 ProgressCb = Callable[[int, str], None]
-FIT_MODES = ("cover", "contain")
+FIT_MODES = ("contain",)
 
 
 @dataclass
@@ -76,7 +76,7 @@ def prepare(req: GenerateRequest) -> ClipSpec:
     episode = parse_episode(req.episode)
     title = clean_title(req.title, settings.title_max_chars)
     template = template_service.get_template(parse_template_name(req.template or "default"))
-    fit = (req.fit or "cover").strip().lower()
+    fit = "contain"
     if fit not in FIT_MODES:
         raise AppError("Video fit harus 'cover' atau 'contain'.", 400, "bad_fit")
     video_layout = (req.video_layout or "template_background").strip().lower()
@@ -176,7 +176,7 @@ def _prepare_audio_only(req: GenerateRequest) -> ClipSpec:
         episode=0,
         title="",
         template=None,
-        fit="cover",
+        fit="contain",
         start=0.0,
         end=duration,
         filename=make_audio_only_filename(meta.get("original_name", "clip")),
