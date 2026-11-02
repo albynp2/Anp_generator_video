@@ -69,45 +69,22 @@ def template_preview(
     output_width: int = 1080,
     output_height: int = 1920,
 ):
-    """Preview template memakai pemetaan area dan skala teks yang sama dengan renderer final."""
+    """Render preview langsung dari JSON template dengan transform Contain bersama."""
     from dataclasses import replace
 
     tpl = template_service.get_template(name)
     output_width = max(2, min(4096, int(output_width or 1080)))
     output_height = max(2, min(4096, int(output_height or 1920)))
     canvas = (output_width, output_height)
-
-    # Renderer final selalu memakai background Cover. Auto area mengikuti
-    # peregangan koordinat canvas; Manual area mempertahankan rasio template
-    # dengan pemetaan Contain (termasuk offset letterbox) seperti video_processor.
+    scale, scaled_w, scaled_h, offset_x, offset_y = template_service.contain_geometry(
+        tpl.width, tpl.height, output_width, output_height
+    )
     with Image.open(tpl.image_path) as im:
-        base = ImageOps.fit(
-            im.convert("RGBA"), canvas,
-            method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
+        fitted = im.convert("RGBA").resize(
+            (scaled_w, scaled_h), Image.Resampling.LANCZOS
         )
-
-    if tpl.layout_mode == "auto":
-        sx, sy = output_width / tpl.width, output_height / tpl.height
-        def map_area(area):
-            x, y, w, h = area.as_tuple()
-            left, top = round(x * sx), round(y * sy)
-            right, bottom = round((x + w) * sx), round((y + h) * sy)
-            return (left, top, max(2, right - left), max(2, bottom - top))
-        scale = min(output_width / tpl.width, output_height / tpl.height)
-    else:
-        scale = min(output_width / tpl.width, output_height / tpl.height)
-        scaled_w = max(2, int(round(tpl.width * scale)))
-        scaled_h = max(2, int(round(tpl.height * scale)))
-        offset_x = (output_width - scaled_w) // 2
-        offset_y = (output_height - scaled_h) // 2
-
-        def map_area(area):
-            x, y, w, h = area.as_tuple()
-            left = max(0, min(output_width - 2, offset_x + round(x * scale)))
-            top = max(0, min(output_height - 2, offset_y + round(y * scale)))
-            right = max(left + 2, min(output_width, offset_x + round((x + w) * scale)))
-            bottom = max(top + 2, min(output_height, offset_y + round((y + h) * scale)))
-            return (left, top, right - left, bottom - top)
+    base = Image.new("RGBA", canvas, (0, 0, 0, 255))
+    base.alpha_composite(fitted, (offset_x, offset_y))
 
     def scale_style(style):
         shadow = dict(style.shadow) if isinstance(style.shadow, dict) else style.shadow
@@ -135,24 +112,23 @@ def template_preview(
 
     episode_style = scale_style(tpl.episode_style)
     title_style = scale_style(tpl.title_style)
-    if tpl.layout_mode == "auto" and fit == "contain":
-        episode_style = replace(episode_style, background={**(episode_style.background or {}), "enabled": False})
-        title_style = replace(title_style, background={**(title_style.background or {}), "enabled": False})
-
     if episode_text.strip():
         ep = text_renderer.render_episode(
-            episode_text, episode_style, canvas, map_area(tpl.episode_area)
+            episode_text, episode_style, canvas,
+            template_service.map_area_contain(tpl.episode_area, tpl.width, tpl.height, *canvas)
         )
         base.alpha_composite(ep.image, (ep.x, ep.y))
     if title_text.strip():
         title = text_renderer.render_title(
-            title_text, title_style, canvas, map_area(tpl.title_area)
+            title_text, title_style, canvas,
+            template_service.map_area_contain(tpl.title_area, tpl.width, tpl.height, *canvas)
         )
         base.alpha_composite(title.image, (title.x, title.y))
 
     out = io.BytesIO()
     base.convert("RGB").save(out, format="PNG", optimize=False)
     return Response(content=out.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
+
 
 @router.get("/templates/{name}/text-preview")
 def template_text_preview(
@@ -162,34 +138,16 @@ def template_text_preview(
     output_width: int = 1080,
     output_height: int = 1920,
 ):
-    """Render only configured text layers on a transparent output-sized canvas."""
+    """Render text dari JSON template dengan transform Contain yang sama."""
     from dataclasses import replace
 
     tpl = template_service.get_template(name)
     output_width = max(2, min(4096, int(output_width or 1080)))
     output_height = max(2, min(4096, int(output_height or 1920)))
     canvas = (output_width, output_height)
-    scale = min(output_width / tpl.width, output_height / tpl.height)
-    if tpl.layout_mode == "auto":
-        sx, sy = output_width / tpl.width, output_height / tpl.height
-        def map_area(area):
-            x, y, w, h = area.as_tuple()
-            left, top = round(x * sx), round(y * sy)
-            right, bottom = round((x + w) * sx), round((y + h) * sy)
-            return (left, top, max(2, right - left), max(2, bottom - top))
-    else:
-        scaled_w = max(2, int(round(tpl.width * scale)))
-        scaled_h = max(2, int(round(tpl.height * scale)))
-        offset_x = (output_width - scaled_w) // 2
-        offset_y = (output_height - scaled_h) // 2
-
-        def map_area(area):
-            x, y, w, h = area.as_tuple()
-            left = max(0, min(output_width - 2, offset_x + round(x * scale)))
-            top = max(0, min(output_height - 2, offset_y + round(y * scale)))
-            right = max(left + 2, min(output_width, offset_x + round((x + w) * scale)))
-            bottom = max(top + 2, min(output_height, offset_y + round((y + h) * scale)))
-            return (left, top, right - left, bottom - top)
+    scale, _, _, _, _ = template_service.contain_geometry(
+        tpl.width, tpl.height, output_width, output_height
+    )
 
     def scale_style(style):
         shadow = dict(style.shadow) if isinstance(style.shadow, dict) else style.shadow
@@ -217,25 +175,17 @@ def template_text_preview(
 
     episode_style = scale_style(tpl.episode_style)
     title_style = scale_style(tpl.title_style)
-    # Video Generator selalu memakai Contain. Samakan aturan Auto Template
-    # dengan video_processor.render(): background teks dimatikan pada mode ini.
-    if tpl.layout_mode == "auto":
-        episode_style = replace(
-            episode_style, background={**(episode_style.background or {}), "enabled": False}
-        )
-        title_style = replace(
-            title_style, background={**(title_style.background or {}), "enabled": False}
-        )
-
     overlay = Image.new("RGBA", canvas, (0, 0, 0, 0))
     if episode_text.strip():
         layer = text_renderer.render_episode(
-            episode_text, episode_style, canvas, map_area(tpl.episode_area)
+            episode_text, episode_style, canvas,
+            template_service.map_area_contain(tpl.episode_area, tpl.width, tpl.height, *canvas)
         )
         overlay.alpha_composite(layer.image, (layer.x, layer.y))
     if title_text.strip():
         layer = text_renderer.render_title(
-            title_text, title_style, canvas, map_area(tpl.title_area)
+            title_text, title_style, canvas,
+            template_service.map_area_contain(tpl.title_area, tpl.width, tpl.height, *canvas)
         )
         overlay.alpha_composite(layer.image, (layer.x, layer.y))
 
@@ -286,7 +236,6 @@ async def preview_template(
     # Susunan layer harus sama dengan Generator dan FFmpeg:
     # background template -> bidang hitam video -> video (saat generate) -> teks.
     # Preview Builder tidak memuat video sumber, jadi tampilkan bidang hitamnya.
-    video_area = template_service.Area.from_dict(data.get("video_area") or {}, "video_area", cw, ch)
     draw = ImageDraw.Draw(base)
     draw.rectangle(
         (
