@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from ..config import settings
 from ..models.schemas import GenerateRequest
@@ -298,14 +298,26 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
             max_width=round(style.max_width * scale) if style.max_width else None,
             shadow=shadow, background=background, fire=fire)
 
-    # Vertical short-form layout: keep the main footage inside the center 70%.
-    # Custom template coordinates remain editable; default template uses fixed thirds.
-    if tpl.name == "default" and canvas[1] >= canvas[0]:
+    # Auto template fills the output canvas; its areas scale independently
+    # with the selected output aspect ratio so the background reaches every edge.
+    if tpl.layout_mode == "auto":
+        sx, sy = canvas[0] / tpl.width, canvas[1] / tpl.height
+        def map_auto(area):
+            x, y, w, h = area.as_tuple()
+            left, top = round(x * sx), round(y * sy)
+            right, bottom = round((x + w) * sx), round((y + h) * sy)
+            return (left, top, max(2, right - left), max(2, bottom - top))
+        video_area = map_auto(tpl.video_area)
+        episode_area = map_auto(tpl.episode_area)
+        title_area = map_auto(tpl.title_area)
+    elif tpl.name == "default" and canvas[1] >= canvas[0]:
         video_area = (0, round(canvas[1] * 0.15), canvas[0], round(canvas[1] * 0.70))
+        episode_area = map_area(tpl.episode_area)
+        title_area = map_area(tpl.title_area)
     else:
         video_area = map_area(tpl.video_area)
-    episode_area = map_area(tpl.episode_area)
-    title_area = map_area(tpl.title_area)
+        episode_area = map_area(tpl.episode_area)
+        title_area = map_area(tpl.title_area)
 
     # Contain membuat letterbox di dalam video_area. Posisikan teks tepat
     # di tengah ruang kosong tersebut berdasarkan rasio video sumber.
@@ -329,13 +341,20 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
 
     episode_style = scale_style(tpl.episode_style)
     title_style = scale_style(tpl.title_style)
+    if tpl.layout_mode == "auto" and clip.fit == "contain":
+        episode_style = replace(episode_style, background={**(episode_style.background or {}), "enabled": False})
+        title_style = replace(title_style, background={**(title_style.background or {}), "enabled": False})
 
     progress(2, "Menyiapkan template")
     template_png = job_dir / "template.png"
     with Image.open(tpl.image_path) as im:
-        im = im.convert("RGBA").resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
-        canvas_image = Image.new("RGBA", canvas, (0, 0, 0, 255))
-        canvas_image.alpha_composite(im, (offset_x, offset_y))
+        im = im.convert("RGBA")
+        if tpl.layout_mode == "auto":
+            canvas_image = ImageOps.fit(im, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+        else:
+            im = im.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
+            canvas_image = Image.new("RGBA", canvas, (0, 0, 0, 255))
+            canvas_image.alpha_composite(im, (offset_x, offset_y))
         canvas_image.save(template_png)
 
     progress(4, "Membuat teks utama")
