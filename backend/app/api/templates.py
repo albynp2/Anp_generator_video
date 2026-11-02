@@ -215,15 +215,27 @@ def template_text_preview(
             shadow=shadow, background=background, fire=fire,
         )
 
+    episode_style = scale_style(tpl.episode_style)
+    title_style = scale_style(tpl.title_style)
+    # Video Generator selalu memakai Contain. Samakan aturan Auto Template
+    # dengan video_processor.render(): background teks dimatikan pada mode ini.
+    if tpl.layout_mode == "auto":
+        episode_style = replace(
+            episode_style, background={**(episode_style.background or {}), "enabled": False}
+        )
+        title_style = replace(
+            title_style, background={**(title_style.background or {}), "enabled": False}
+        )
+
     overlay = Image.new("RGBA", canvas, (0, 0, 0, 0))
     if episode_text.strip():
         layer = text_renderer.render_episode(
-            episode_text, scale_style(tpl.episode_style), canvas, map_area(tpl.episode_area)
+            episode_text, episode_style, canvas, map_area(tpl.episode_area)
         )
         overlay.alpha_composite(layer.image, (layer.x, layer.y))
     if title_text.strip():
         layer = text_renderer.render_title(
-            title_text, scale_style(tpl.title_style), canvas, map_area(tpl.title_area)
+            title_text, title_style, canvas, map_area(tpl.title_area)
         )
         overlay.alpha_composite(layer.image, (layer.x, layer.y))
 
