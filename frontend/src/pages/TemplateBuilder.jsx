@@ -89,14 +89,27 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
       if (textType === "outline") { ctx.lineWidth = Math.max(1, Number(strokeWidth) * s); ctx.strokeStyle = strokeColor; ctx.strokeText(shown, x + w / 2, y + h / 2, maxW); }
       ctx.fillText(shown, x + w / 2, y + h / 2, maxW); ctx.restore();
     };
+    // Layer 2: contoh teks berada di atas gambar background.
     drawLabel("Contoh teks utama", currentAreas.episode, epSize, textColor, true);
     drawLabel("Judul video", currentAreas.title, tiSize, textColor, true);
+
+    // Layer 1: area video berupa bidang hitam saja; tidak menutupi area background lain.
+    const video = currentAreas.video;
+    if (video) {
+      ctx.save();
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(video.x * s, video.y * s, video.width * s, video.height * s);
+      ctx.restore();
+    }
+
     if (mode === "manual") for (const { key, color, label: areaLabel } of AREA_DEFS) {
       const a = currentAreas[key]; if (!a) continue;
       ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = key === active && mode === "manual" ? 3 : 2;
       ctx.setLineDash(key === active && mode === "manual" ? [] : [6, 4]);
       ctx.strokeRect(a.x * s, a.y * s, a.width * s, a.height * s);
-      ctx.fillStyle = `${color}20`; ctx.fillRect(a.x * s, a.y * s, a.width * s, a.height * s);
+      if (key !== "video") {
+        ctx.fillStyle = `${color}20`; ctx.fillRect(a.x * s, a.y * s, a.width * s, a.height * s);
+      }
       ctx.fillStyle = color; ctx.font = `bold ${Math.max(10, 12 * s)}px Arial`; ctx.fillText(areaLabel, a.x * s + 5, a.y * s + 13);
       ctx.restore();
     }
