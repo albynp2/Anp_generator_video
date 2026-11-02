@@ -270,7 +270,8 @@ def build_command(spec: RenderSpec) -> list:
     else:
         filters_video = (
             f"[0:v]scale={background_w}:{background_h}:force_original_aspect_ratio=increase:"
-            f"force_divisible_by=2:flags=lanczos,crop={background_w}:{background_h},setsar=1[base];"
+            f"force_divisible_by=2:flags=lanczos,crop={background_w}:{background_h},setsar=1,"
+            f"drawbox=x={ax}:y={ay}:w={aw}:h={ah}:color=black:t=fill[base];"
             f"[1:v]setpts=PTS-STARTPTS,fps={fps},{crop_filter}setsar=1,"
             + (
                 f"scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease:"
