@@ -51,6 +51,7 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
   const [showTextBackground, setShowTextBackground] = useState(true), [backgroundColor, setBackgroundColor] = useState("#333333");
   const [backgroundOpacity, setBackgroundOpacity] = useState(10), [backgroundPadding, setBackgroundPadding] = useState(0), [backgroundRadius, setBackgroundRadius] = useState(0);
   const [hint, setHint] = useState(""), [jsonOut, setJsonOut] = useState(""), [saving, setSaving] = useState(false), [saveMsg, setSaveMsg] = useState(null), [previewError, setPreviewError] = useState("");
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
 
   const currentAreas = natSize ? (mode === "auto" ? autoAreasFor(natSize.w, natSize.h) : areas) : areas;
   const draw = () => {
