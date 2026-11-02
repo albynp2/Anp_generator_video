@@ -91,12 +91,23 @@ def template_preview(
     title_area = map_area(tpl.title_area)
     if fit == "contain" and source_width > 0 and source_height > 0:
         contain_scale = min(vw / source_width, vh / source_height)
+        displayed_w = max(2, round(source_width * contain_scale))
         displayed_h = max(2, round(source_height * contain_scale))
+        letterbox_left = max(0, (vw - displayed_w) // 2)
+        letterbox_right = max(0, vw - displayed_w - letterbox_left)
         letterbox_top = max(0, (vh - displayed_h) // 2)
         letterbox_bottom = max(0, vh - displayed_h - letterbox_top)
-        if letterbox_top >= 2 and letterbox_bottom >= 2:
-            episode_area = (vx, vy, vw, letterbox_top)
-            title_area = (vx, vy + letterbox_top + displayed_h, vw, letterbox_bottom)
+        # Letakkan teks pada ruang letterbox yang benar-benar tersedia.
+        if letterbox_top >= 2 or letterbox_bottom >= 2:
+            if letterbox_top >= letterbox_bottom and letterbox_top >= 2:
+                episode_area = (vx, vy, vw, letterbox_top)
+            elif letterbox_bottom >= 2:
+                title_area = (vx, vy + letterbox_top + displayed_h, vw, letterbox_bottom)
+        elif letterbox_left >= 2 or letterbox_right >= 2:
+            if letterbox_left >= letterbox_right and letterbox_left >= 2:
+                episode_area = (vx, vy, letterbox_left, vh)
+            elif letterbox_right >= 2:
+                title_area = (vx + letterbox_left + displayed_w, vy, letterbox_right, vh)
 
     episode_style, title_style = tpl.episode_style, tpl.title_style
     if tpl.layout_mode == "auto" and fit == "contain":
@@ -155,9 +166,19 @@ async def preview_template(
 
     # Placeholder video mengikuti persis koordinat viewport video pada template.
     vx, vy, vw, vh = video_area.as_tuple()
-    placeholder = Image.new("RGBA", (vw, vh), (13, 13, 16, 255))
-    pd = ImageDraw.Draw(placeholder)
-    pd.text((vw // 2, vh // 2), "VIDEO PREVIEW", fill=(155, 155, 165, 220), anchor="mm")
+    # Builder tidak memiliki video sumber; tampilkan placeholder 16:9
+    # yang di-fit Contain agar ruang letterbox terlihat pada preview.
+    placeholder = Image.new("RGBA", (vw, vh), (24, 24, 28, 255))
+    preview_w, preview_h = vw, vh
+    preview_scale = min(vw / 16, vh / 9)
+    preview_w = max(2, min(vw, round(16 * preview_scale)))
+    preview_h = max(2, min(vh, round(9 * preview_scale)))
+    preview_x, preview_y = (vw - preview_w) // 2, (vh - preview_h) // 2
+    frame = Image.new("RGBA", (preview_w, preview_h), (13, 13, 16, 255))
+    fd = ImageDraw.Draw(frame)
+    fd.rectangle((0, 0, preview_w - 1, preview_h - 1), outline=(75, 75, 82, 255), width=max(1, min(3, preview_w // 180)))
+    fd.text((preview_w // 2, preview_h // 2), "VIDEO PREVIEW", fill=(155, 155, 165, 220), anchor="mm")
+    placeholder.alpha_composite(frame, (preview_x, preview_y))
     base.alpha_composite(placeholder, (vx, vy))
 
     episode_style = text_renderer.TextStyle.from_dict(data.get("episode"))
