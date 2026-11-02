@@ -3,7 +3,6 @@ import { AlertTriangle, Clapperboard, Film, Flame, LayoutTemplate, Music2, Spark
 import UploadZone from "../components/UploadZone.jsx";
 import Field from "../components/Field.jsx";
 import TimeInput from "../components/TimeInput.jsx";
-import FitToggle from "../components/FitToggle.jsx";
 import PreviewPanel from "../components/PreviewPanel.jsx";
 import CaptionPanel from "../components/CaptionPanel.jsx";
 import MuteMusicFields from "../components/MuteMusicFields.jsx";
@@ -15,7 +14,7 @@ import { parseTimecode } from "../utils/time.js";
 
 const EMPTY_UPLOAD = { status: "idle", progress: 0, info: null, error: "", fileName: "" };
 const EMPTY_AUDIO = { status: "idle", progress: 0, info: null, error: "" };
-const INITIAL_FORM = { episode: "", start: "", end: "", title: "", template: "default", fit: "cover", videoLayout: "template_background", outputPreset: "1080x1920", outputWidth: 1080, outputHeight: 1920, arc: "", notes: "", caption: true };
+const INITIAL_FORM = { episode: "", start: "", end: "", title: "", template: "default", fit: "contain", videoLayout: "template_background", outputPreset: "1080x1920", outputWidth: 1080, outputHeight: 1920, arc: "", notes: "", caption: true };
 const TITLE_LIMIT = 200;
 const PREF_KEY = "anp-clipper.caption.prefs";
 const LEGACY_PREF_KEY = "hersclipp.caption.prefs";
@@ -176,8 +175,7 @@ export default function Home({ onOpenBuilder }) {
   const errors = useMemo(() => {
     const e = {};
     if (mode === "clip") {
-      if (!form.episode.trim()) e.episode = "Teks utama wajib diisi.";
-      else if (form.episode.trim().length > 120) e.episode = "Teks utama maksimal 120 karakter.";
+      if (form.episode.trim().length > 120) e.episode = "Teks utama maksimal 120 karakter.";
       const s = parseTimecode(form.start);
       const en = parseTimecode(form.end);
       const dur = upload.info?.duration;
@@ -187,7 +185,6 @@ export default function Home({ onOpenBuilder }) {
       else if (en === null) e.end = "Format HH:MM:SS, contoh 00:04:18.";
       else if (s !== null && en <= s) e.end = "End time harus lebih besar dari Start time.";
       else if (dur && en > dur + 0.001) e.end = "End time tidak boleh melebihi durasi video.";
-      if (!form.title.trim()) e.title = "Title wajib diisi.";
     }
     const wantsReplace = mode === "audio_only" || replaceAudio;
     if (wantsReplace) {
@@ -221,7 +218,7 @@ export default function Home({ onOpenBuilder }) {
       const payload = {
         upload_id: upload.info.upload_id,
         template: form.template,
-        fit: form.fit,
+        fit: "contain",
         video_layout: "template_background",
         output_width: Number(form.outputWidth),
         output_height: Number(form.outputHeight),
@@ -349,13 +346,7 @@ export default function Home({ onOpenBuilder }) {
                   {templates.length === 0 && (
                     <p className="mt-1 text-xs text-amber-300">Semua template sedang dihapus/nonaktif. Tambahkan PNG dan JSON template untuk mengaktifkan Generate Video.</p>
                   )}
-                </Field>
-                <Field label="Video Fit">
-                  <FitToggle value={form.fit} onChange={set("fit")} disabled={busy} />
-                </Field>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
+                  </Field>
                 <Field label="Resolusi Output" hint="Default Full HD 9:16 untuk Facebook, Instagram, YouTube Shorts, dan TikTok.">
                   <select className="input" value={form.outputPreset} disabled={busy}
                     onChange={(e) => {
@@ -376,21 +367,21 @@ export default function Home({ onOpenBuilder }) {
                     <option value="1080x1080">Square — 1080 × 1080 (1:1)</option>
                     <option value="custom">Custom</option>
                   </select>
+                  {form.outputPreset === "custom" ? (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <Field label="Width (px)">
+                        <input className="input" type="number" min="256" max="4096" step="2" value={form.outputWidth}
+                          disabled={busy} onChange={(e) => set("outputWidth")(e.target.value)} />
+                      </Field>
+                      <Field label="Height (px)">
+                        <input className="input" type="number" min="256" max="4096" step="2" value={form.outputHeight}
+                          disabled={busy} onChange={(e) => set("outputHeight")(e.target.value)} />
+                      </Field>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-xs text-stone-500">Output: {form.outputWidth} × {form.outputHeight} px</div>
+                  )}
                 </Field>
-                {form.outputPreset === "custom" ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Field label="Width (px)">
-                      <input className="input" type="number" min="256" max="4096" step="2" value={form.outputWidth}
-                        disabled={busy} onChange={(e) => set("outputWidth")(e.target.value)} />
-                    </Field>
-                    <Field label="Height (px)">
-                      <input className="input" type="number" min="256" max="4096" step="2" value={form.outputHeight}
-                        disabled={busy} onChange={(e) => set("outputHeight")(e.target.value)} />
-                    </Field>
-                  </div>
-                ) : (
-                  <div className="flex items-end pb-2 text-xs text-stone-500">Output: {form.outputWidth} × {form.outputHeight} px</div>
-                )}
               </div>
 
               <div className="space-y-4 rounded-xl border border-ink-600/70 bg-ink-900/60 p-3">
@@ -492,7 +483,7 @@ export default function Home({ onOpenBuilder }) {
 
         {/* KANAN: preview */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} sourcePreviewUrl={mode === "clip" ? sourcePreviewUrl : ""} fit={form.fit} videoArea={templates.find((t) => t.name === form.template)?.video_area} templateWidth={templates.find((t) => t.name === form.template)?.width} templateHeight={templates.find((t) => t.name === form.template)?.height} startSeconds={parseTimecode(form.start) ?? 0} endSeconds={parseTimecode(form.end)} retentionMinutes={retention} outputWidth={form.outputWidth} outputHeight={form.outputHeight} onDeleted={() => { stopPolling(); setJob(null); }} />
+          <PreviewPanel job={job} template={mode === "clip" ? form.template : null} sourcePreviewUrl={mode === "clip" ? sourcePreviewUrl : ""} fit="contain" videoArea={templates.find((t) => t.name === form.template)?.video_area} layoutMode={templates.find((t) => t.name === form.template)?.layout_mode} templateWidth={templates.find((t) => t.name === form.template)?.width} templateHeight={templates.find((t) => t.name === form.template)?.height} episodeText={form.episode} titleText={form.title} startSeconds={parseTimecode(form.start) ?? 0} endSeconds={parseTimecode(form.end)} retentionMinutes={retention} outputWidth={form.outputWidth} outputHeight={form.outputHeight} onDeleted={() => { stopPolling(); setJob(null); }} />
           {job?.status === "completed" && job.caption_status !== "off" && (
             <CaptionPanel jobId={job.job_id} arc={form.arc.trim()} notes={form.notes.trim()} />
           )}

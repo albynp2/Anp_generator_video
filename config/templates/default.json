@@ -1,6 +1,6 @@
 {
   "name": "default",
-  "label": "Template Default",
+  "label": "Template Default Blur",
   "image": "template_default.png",
   "canvas": {
     "width": 1080,
@@ -13,16 +13,16 @@
     "height": 1344
   },
   "episode_area": {
-    "x": 54,
-    "y": 28,
-    "width": 972,
-    "height": 230
+    "x": 240,
+    "y": 405,
+    "width": 600,
+    "height": 180
   },
   "title_area": {
-    "x": 54,
-    "y": 1660,
-    "width": 972,
-    "height": 230
+    "x": 260,
+    "y": 1300,
+    "width": 560,
+    "height": 180
   },
   "episode": {
     "text_format": "{text}",
@@ -92,5 +92,6 @@
       "sparks": 0,
       "brightness": 0.68
     }
-  }
+  },
+  "layout_mode": "manual"
 }

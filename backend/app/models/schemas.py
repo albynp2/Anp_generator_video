@@ -18,7 +18,7 @@ class GenerateRequest(BaseModel):
     end: str = ""
     title: str = ""
     template: str = "default"
-    fit: str = "cover"
+    fit: str = "contain"
     video_layout: str = "template_background"
     output_width: int = 1080
     output_height: int = 1920

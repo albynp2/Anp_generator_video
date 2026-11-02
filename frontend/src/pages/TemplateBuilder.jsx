@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, Check, Download, Flame, Loader2, MousePointerSquareDashed, Save, UploadCloud } from "lucide-react";
-import { saveTemplate, previewTemplate } from "../services/api.js";
+import { saveTemplate, previewTemplate, getTemplateConfig, getTemplateImageFile } from "../services/api.js";
 
 const AREA_DEFS = [
   { key: "video", label: "Video Area", color: "#ff6a00", desc: "Area untuk menempatkan video" },
@@ -18,23 +18,31 @@ const STYLE_TYPES = [
   ["plain", "Normal"], ["bold", "Bold"], ["outline", "Outline"],
   ["shadow", "Shadow / bayangan"], ["glow", "Glow / bercahaya"], ["fire", "Fire / api"],
 ];
+const CANVAS_W = 1080, CANVAS_H = 1920;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+function drawCover(ctx, image, width, height) {
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const sw = width / scale, sh = height / scale;
+  const sx = (image.naturalWidth - sw) / 2, sy = (image.naturalHeight - sh) / 2;
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, width, height);
+}
 function autoAreasFor(w, h) {
-  // Layout generik: video di tengah, teks utama di atas, judul di bawah.
+  // Layout Auto 9:16: teks utama di zona atas (kotak merah),
+  // judul di zona bawah (kotak biru), dan video mengisi area tengah.
   const vertical = h >= w;
   const video = vertical
-    ? { x: 0, y: Math.round(h * .15), width: w, height: Math.round(h * .70) }
-    : { x: Math.round(w * .15), y: 0, width: Math.round(w * .70), height: h };
+    ? { x: 0, y: Math.round(h * .28), width: w, height: Math.round(h * .44) }
+    : { x: Math.round(w * .28), y: 0, width: Math.round(w * .44), height: h };
   const episode = vertical
-    ? { x: Math.round(w * .05), y: Math.round(h * .015), width: Math.round(w * .90), height: Math.round(h * .12) }
-    : { x: Math.round(w * .05), y: Math.round(h * .05), width: Math.round(w * .90), height: Math.round(h * .12) };
+    ? { x: Math.round(w * .22), y: Math.round(h * .20), width: Math.round(w * .56), height: Math.round(h * .08) }
+    : { x: Math.round(w * .20), y: Math.round(h * .22), width: Math.round(w * .08), height: Math.round(h * .56) };
   const title = vertical
-    ? { x: Math.round(w * .05), y: Math.round(h * .865), width: Math.round(w * .90), height: Math.round(h * .12) }
-    : { x: Math.round(w * .05), y: Math.round(h * .83), width: Math.round(w * .90), height: Math.round(h * .12) };
+    ? { x: Math.round(w * .24), y: Math.round(h * .72), width: Math.round(w * .52), height: Math.round(h * .08) }
+    : { x: Math.round(w * .72), y: Math.round(h * .22), width: Math.round(w * .08), height: Math.round(h * .56) };
   return { video, episode, title };
 }
 
-export default function TemplateBuilder({ onBack }) {
+export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
   const canvasRef = useRef(null), fileRef = useRef(null), imgRef = useRef(null), previewImageRef = useRef(null), previewUrlRef = useRef(null), fileObjRef = useRef(null);
   const scaleRef = useRef(1), dragRef = useRef(null);
   const [natSize, setNatSize] = useState(null);
@@ -51,13 +59,14 @@ export default function TemplateBuilder({ onBack }) {
   const [showTextBackground, setShowTextBackground] = useState(true), [backgroundColor, setBackgroundColor] = useState("#333333");
   const [backgroundOpacity, setBackgroundOpacity] = useState(10), [backgroundPadding, setBackgroundPadding] = useState(0), [backgroundRadius, setBackgroundRadius] = useState(0);
   const [hint, setHint] = useState(""), [jsonOut, setJsonOut] = useState(""), [saving, setSaving] = useState(false), [saveMsg, setSaveMsg] = useState(null), [previewError, setPreviewError] = useState("");
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
 
-  const currentAreas = natSize ? (mode === "auto" ? autoAreasFor(natSize.w, natSize.h) : areas) : areas;
+  const currentAreas = natSize ? (mode === "auto" ? autoAreasFor(CANVAS_W, CANVAS_H) : areas) : areas;
   const draw = () => {
     const cv = canvasRef.current; if (!cv) return;
     const ctx = cv.getContext("2d"); ctx.clearRect(0, 0, cv.width, cv.height);
     const baseImage = previewImageRef.current || imgRef.current;
-    if (baseImage) ctx.drawImage(baseImage, 0, 0, cv.width, cv.height);
+    if (baseImage) drawCover(ctx, baseImage, cv.width, cv.height);
     if (!natSize) return;
     const s = scaleRef.current;
     const drawLabel = (text, area, size, color, bg = false) => {
@@ -80,14 +89,27 @@ export default function TemplateBuilder({ onBack }) {
       if (textType === "outline") { ctx.lineWidth = Math.max(1, Number(strokeWidth) * s); ctx.strokeStyle = strokeColor; ctx.strokeText(shown, x + w / 2, y + h / 2, maxW); }
       ctx.fillText(shown, x + w / 2, y + h / 2, maxW); ctx.restore();
     };
+    // Layer 2: contoh teks berada di atas gambar background.
     drawLabel("Contoh teks utama", currentAreas.episode, epSize, textColor, true);
     drawLabel("Judul video", currentAreas.title, tiSize, textColor, true);
+
+    // Layer 1: area video berupa bidang hitam saja; tidak menutupi area background lain.
+    const video = currentAreas.video;
+    if (video) {
+      ctx.save();
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(video.x * s, video.y * s, video.width * s, video.height * s);
+      ctx.restore();
+    }
+
     if (mode === "manual") for (const { key, color, label: areaLabel } of AREA_DEFS) {
       const a = currentAreas[key]; if (!a) continue;
       ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = key === active && mode === "manual" ? 3 : 2;
       ctx.setLineDash(key === active && mode === "manual" ? [] : [6, 4]);
       ctx.strokeRect(a.x * s, a.y * s, a.width * s, a.height * s);
-      ctx.fillStyle = `${color}20`; ctx.fillRect(a.x * s, a.y * s, a.width * s, a.height * s);
+      if (key !== "video") {
+        ctx.fillStyle = `${color}20`; ctx.fillRect(a.x * s, a.y * s, a.width * s, a.height * s);
+      }
       ctx.fillStyle = color; ctx.font = `bold ${Math.max(10, 12 * s)}px Arial`; ctx.fillText(areaLabel, a.x * s + 5, a.y * s + 13);
       ctx.restore();
     }
@@ -119,24 +141,74 @@ export default function TemplateBuilder({ onBack }) {
     return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
   }, [areas, active, natSize, mode, epSize, tiSize, fontTheme, textType, textColor, strokeColor, strokeWidth, shadowBlur, showTextBackground, backgroundColor, backgroundOpacity, backgroundPadding, backgroundRadius]);
 
-  const handleFile = (file) => {
+  const handleFile = (file, loadedConfig = null) => {
     if (!file) return;
     fileObjRef.current = file; setSaveMsg(null);
     const reader = new FileReader();
     reader.onload = (ev) => {
       const image = new Image();
       image.onload = () => {
-        imgRef.current = image; previewImageRef.current = null; if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null; } const w = image.naturalWidth, h = image.naturalHeight;
-        const s = Math.min(640 / w, 860 / h, 1); scaleRef.current = s;
-        const cv = canvasRef.current; cv.width = Math.max(1, Math.round(w * s)); cv.height = Math.max(1, Math.round(h * s));
-        setNatSize({ w, h }); setAreas(autoAreasFor(w, h)); setMode("auto"); setJsonOut(""); setHint("");
+        imgRef.current = image; previewImageRef.current = null; if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null; } const w = CANVAS_W, h = CANVAS_H;
+        const s = Math.min(640 / w, 860 / h); scaleRef.current = s;
+        const cv = canvasRef.current; cv.width = Math.round(w * s); cv.height = Math.round(h * s);
+        setNatSize({ w, h });
+        if (loadedConfig) {
+          const oldCanvas = loadedConfig.canvas || {};
+          const ratioX = Number(oldCanvas.width) > 0 ? CANVAS_W / Number(oldCanvas.width) : 1;
+          const ratioY = Number(oldCanvas.height) > 0 ? CANVAS_H / Number(oldCanvas.height) : 1;
+          const toArea = (a) => ({
+            x: Math.round((Number(a?.x) || 0) * ratioX),
+            y: Math.round((Number(a?.y) || 0) * ratioY),
+            width: Math.round((Number(a?.width) || Number(oldCanvas.width) || w) * ratioX),
+            height: Math.round((Number(a?.height) || Number(oldCanvas.height) || h) * ratioY),
+          });
+          setAreas({ video: toArea(loadedConfig.video_area), episode: toArea(loadedConfig.episode_area), title: toArea(loadedConfig.title_area) });
+          setMode(loadedConfig.layout_mode === "manual" ? "manual" : "auto");
+          setName(loadedConfig.name || ""); setLabel(loadedConfig.label || "");
+          setEpFormat(loadedConfig.episode?.text_format || "{text}");
+          const font = loadedConfig.episode?.font || "";
+          const theme = Object.entries(FONT_THEMES).find(([, v]) => v.font === font)?.[0] || "cinematic";
+          setFontTheme(theme); setTextType(loadedConfig.episode?.style_type || "shadow");
+          setEpSize(loadedConfig.episode?.font_size || 20); setTiSize(loadedConfig.title?.font_size || 20);
+          setTextColor(loadedConfig.episode?.color || "#ffffff"); setStrokeColor(loadedConfig.episode?.stroke_color || "#171717");
+          setStrokeWidth(loadedConfig.episode?.stroke_width || 0);
+          setShadowBlur(loadedConfig.episode?.shadow?.blur || 0);
+          const bg = loadedConfig.episode?.background || {};
+          setShowTextBackground(!!bg.enabled); setBackgroundColor(bg.color || "#333333");
+          setBackgroundOpacity(Math.round((Number(bg.opacity ?? 0.1)) * 100));
+          setBackgroundPadding(bg.padding || 0); setBackgroundRadius(bg.radius || 0);
+          setActive("video");
+        } else {
+          setAreas(autoAreasFor(w, h)); setMode("auto"); setName(""); setLabel(""); setEpFormat("");
+        }
+        setJsonOut(""); setHint(""); setSaveMsg(null);
         requestAnimationFrame(draw);
       }; image.src = ev.target.result;
     }; reader.readAsDataURL(file);
   };
+  useEffect(() => {
+    if (!initialTemplateName) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingTemplate(true);
+      try {
+        const [config, imageFile] = await Promise.all([
+          getTemplateConfig(initialTemplateName),
+          getTemplateImageFile(initialTemplateName),
+        ]);
+        if (!cancelled) handleFile(imageFile, config);
+      } catch (err) {
+        if (!cancelled) setSaveMsg({ type: "error", text: err.message || "Gagal memuat template." });
+      } finally {
+        if (!cancelled) setLoadingTemplate(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [initialTemplateName]);
+
   const toXY = (evt) => { const cv = canvasRef.current, r = cv.getBoundingClientRect(), p = evt.touches ? evt.touches[0] : evt; return [clamp((p.clientX-r.left)*(cv.width/r.width),0,cv.width), clamp((p.clientY-r.top)*(cv.height/r.height),0,cv.height)]; };
   const normRect = (x0,y0,x1,y1) => {
-    const s=scaleRef.current, cw=natSize?.w-(natSize?.w%2), ch=natSize?.h-(natSize?.h%2);
+    const s=scaleRef.current, cw=CANVAS_W, ch=CANVAS_H;
     const left=Math.min(x0,x1), top=Math.min(y0,y1);
     const x=clamp(Math.round(left/s),0,Math.max(0,cw-2)), y=clamp(Math.round(top/s),0,Math.max(0,ch-2));
     const right=clamp(Math.round(Math.max(x0,x1)/s),x+2,cw), bottom=clamp(Math.round(Math.max(y0,y1)/s),y+2,ch);
@@ -150,7 +222,7 @@ export default function TemplateBuilder({ onBack }) {
     const slug = name.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"-");
     // Canvas H.264 harus genap. Hitung Auto Area dari dimensi canvas final,
     // bukan ukuran gambar mentah, agar tidak overflow saat gambar berukuran ganjil.
-    const w=natSize.w-(natSize.w%2), h=natSize.h-(natSize.h%2), font=FONT_THEMES[fontTheme];
+    const w=CANVAS_W, h=CANVAS_H, font=FONT_THEMES[fontTheme];
     const sourceAreas = mode === "auto" ? autoAreasFor(w, h) : areas;
     const fitArea = (a) => {
       if (!a) return a;
@@ -175,18 +247,20 @@ export default function TemplateBuilder({ onBack }) {
   const saveToServer = async (overwrite=false) => {
     if(!canGenerate){setHint("Pilih gambar template dan isi nama file terlebih dahulu.");return;}
     if(!fileObjRef.current){setSaveMsg({type:"error",text:"Gambar asli tidak ditemukan. Pilih ulang gambar template."});return;}
-    const {slug,config}=buildConfig();setJsonOut(JSON.stringify(config,null,2));setSaving(true);setSaveMsg(null);
+    const {slug,config}=buildConfig();
+    if (initialTemplateName && overwrite && slug !== initialTemplateName) { setSaveMsg({type:"error",text:"Untuk Simpan Perubahan, nama file harus tetap sama. Gunakan Simpan Sebagai Template Baru jika ingin nama berbeda."}); return; }
+    setJsonOut(JSON.stringify(config,null,2));setSaving(true);setSaveMsg(null);
     try{await saveTemplate(config,fileObjRef.current,overwrite);setSaveMsg({type:"ok",text:`Template ${slug} berhasil disimpan dan siap dipilih di dashboard.`});}
     catch(e){if(e.code==="template_exists")setSaveMsg({type:"conflict",text:e.message,slug});else setSaveMsg({type:"error",text:e.message});}
     finally{setSaving(false);}
   };
 
   return <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
-    <header className="mb-6 flex items-center gap-3"><button className="btn-ghost !px-3 !py-2.5" onClick={onBack}><ArrowLeft className="h-4 w-4"/>Kembali</button><div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-ember-600 to-gold-500 shadow-glow"><MousePointerSquareDashed className="h-6 w-6 text-ink-950"/></div><div><h1 className="font-display text-2xl leading-none tracking-wide"><span className="bg-gradient-to-r from-ember-400 to-gold-300 bg-clip-text text-transparent">Template Builder</span></h1><p className="text-xs text-stone-500">Atur area, font, dan gaya teks dengan preview realtime</p></div></header>
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <header className="mb-6 flex items-center gap-3"><button className="btn-ghost !px-3 !py-2.5" onClick={onBack}><ArrowLeft className="h-4 w-4"/>Kembali</button><div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-ember-600 to-gold-500 shadow-glow"><MousePointerSquareDashed className="h-6 w-6 text-ink-950"/></div><div><h1 className="font-display text-2xl leading-none tracking-wide"><span className="bg-gradient-to-r from-ember-400 to-gold-300 bg-clip-text text-transparent">Template Builder</span></h1><p className="text-xs text-stone-500">{initialTemplateName ? `Edit template: ${initialTemplateName}` : "Atur area, font, dan gaya teks dengan preview realtime"}</p></div></header>
+    {loadingTemplate ? <div className="panel p-8 text-center text-stone-300"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin"/>Memuat konfigurasi template...</div> : <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section className="panel space-y-4 p-4 sm:p-6"><div><label className="label">1. Pilih gambar template (PNG/JPG)</label><button className="btn-primary w-full" onClick={()=>fileRef.current?.click()}><UploadCloud className="h-4 w-4"/>Pilih Gambar</button><input ref={fileRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={e=>handleFile(e.target.files?.[0])}/></div>
         <div className="flex justify-center overflow-auto rounded-xl border border-ink-600 bg-ink-950 p-2"><canvas ref={canvasRef} width={640} height={860} className={`max-w-full rounded-lg ${mode === "manual" ? "cursor-crosshair" : "cursor-default"}`} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}/></div>
-        <p className="text-center text-xs text-stone-500">{natSize?`Ukuran gambar asli: ${natSize.w} × ${natSize.h}px. Preview memakai renderer backend yang sama dengan hasil render.`:"Belum ada gambar dimuat."}</p>{previewError&&<p className="text-center text-xs text-red-300">Preview: {previewError}</p>}
+        <p className="text-center text-xs text-stone-500">{natSize?`Canvas template: 1080 × 1920px (9:16). Gambar menggunakan Cover terpusat; area Auto dan Manual memakai koordinat canvas ini.`:"Belum ada gambar dimuat."}</p>{previewError&&<p className="text-center text-xs text-red-300">Preview: {previewError}</p>}
       </section>
       <aside className="space-y-5">
         <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">2. Area video & teks</p><label className="label">Mode Template</label><select className="input" value={mode} onChange={e=>{const next=e.target.value;setMode(next);if(next==="auto"){setFontTheme("cinematic");setTextType("shadow");setEpSize(20);setTiSize(20);setTextColor("#ffffff");setStrokeColor("#171717");setStrokeWidth(2);setShadowBlur(0);setShowTextBackground(true);setBackgroundColor("#333333");setBackgroundOpacity(10);setBackgroundPadding(0);setBackgroundRadius(0);}}}><option value="auto">Auto Template</option><option value="manual">Manual Template</option></select>
@@ -197,11 +271,11 @@ export default function TemplateBuilder({ onBack }) {
           <div className="grid grid-cols-2 gap-3"><div><label className="label">Ukuran teks utama</label><input type="number" min="12" max="300" className="input" value={epSize} onChange={e=>setEpSize(e.target.value)}/></div><div><label className="label">Ukuran title</label><input type="number" min="12" max="300" className="input" value={tiSize} onChange={e=>setTiSize(e.target.value)}/></div><div><label className="label">Warna teks</label><input type="color" className="input h-11 p-1" value={textColor} onChange={e=>setTextColor(e.target.value)}/></div><div><label className="label">Warna outline</label><input type="color" className="input h-11 p-1" value={strokeColor} onChange={e=>setStrokeColor(e.target.value)}/></div><div><label className="label">Ketebalan outline</label><input type="number" min="0" max="12" className="input" value={strokeWidth} onChange={e=>setStrokeWidth(e.target.value)}/></div><div><label className="label">Shadow / glow blur</label><input type="number" min="0" max="40" className="input" value={shadowBlur} onChange={e=>setShadowBlur(e.target.value)}/></div></div>
           <label className="flex items-center gap-2 text-sm text-stone-200"><input type="checkbox" checked={showTextBackground} onChange={e=>setShowTextBackground(e.target.checked)}/> Aktifkan background teks</label><div className="grid grid-cols-2 gap-3"><div><label className="label">Warna background</label><input type="color" className="input h-11 p-1" value={backgroundColor} onChange={e=>setBackgroundColor(e.target.value)}/></div><div><label className="label">Transparansi (%)</label><input type="number" min="0" max="100" className="input" value={backgroundOpacity} onChange={e=>setBackgroundOpacity(e.target.value)}/></div><div><label className="label">Padding background</label><input type="number" min="0" max="100" className="input" value={backgroundPadding} onChange={e=>setBackgroundPadding(e.target.value)}/></div><div><label className="label">Radius sudut</label><input type="number" min="0" max="100" className="input" value={backgroundRadius} onChange={e=>setBackgroundRadius(e.target.value)}/></div></div><p className="text-[11px] text-stone-500">Semua perubahan gaya, ukuran, font, dan background langsung terlihat di preview gambar.</p>
         </div>
-        <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">5. Simpan Template</p><button className="btn-primary w-full" onClick={()=>saveToServer(false)} disabled={!canGenerate||saving}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}{saving?"Menyimpan…":"Simpan ke Server"}</button><button className="btn-ghost w-full" onClick={downloadOnly} disabled={!canGenerate}><Download className="h-4 w-4"/>Download JSON</button>
+        <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">5. Simpan Template</p>{initialTemplateName ? <><button className="btn-primary w-full" onClick={()=>saveToServer(true)} disabled={!canGenerate||saving}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}{saving?"Menyimpan…":"Simpan Perubahan"}</button><button className="btn-ghost w-full" onClick={()=>saveToServer(false)} disabled={!canGenerate||saving}><Save className="h-4 w-4"/>Simpan Sebagai Template Baru</button></> : <button className="btn-primary w-full" onClick={()=>saveToServer(false)} disabled={!canGenerate||saving}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}{saving?"Menyimpan…":"Simpan ke Server"}</button>}<button className="btn-ghost w-full" onClick={downloadOnly} disabled={!canGenerate}><Download className="h-4 w-4"/>Download JSON</button>
           {saveMsg?.type==="ok"&&<div className="flex gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-300"><Check className="h-4 w-4"/>{saveMsg.text}</div>}{saveMsg?.type==="error"&&<div className="flex gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-300"><AlertTriangle className="h-4 w-4"/>{saveMsg.text}</div>}{saveMsg?.type==="conflict"&&<div className="space-y-2 text-xs text-amber-200">{saveMsg.text}<button className="btn-ghost w-full" onClick={()=>saveToServer(true)} disabled={saving}>Timpa template {saveMsg.slug}</button></div>}{hint&&<p className="text-xs text-gold-300">{hint}</p>}{jsonOut&&<details><summary className="cursor-pointer text-xs text-stone-400">Lihat JSON</summary><textarea readOnly value={jsonOut} className="input mt-2 min-h-[140px] font-mono text-xs"/></details>}
         </div>
         <div className="panel p-4 text-xs text-stone-400"><p className="mb-2 flex items-center gap-1.5 font-semibold text-gold-400"><Flame className="h-3.5 w-3.5"/>Catatan</p>Template tersimpan dengan gambar resolusi asli. Mode Auto menghitung area berdasarkan rasio gambar; mode Manual menggunakan koordinat yang lu atur sendiri.</div>
       </aside>
-    </div>
+    </div>}
   </div>;
 }

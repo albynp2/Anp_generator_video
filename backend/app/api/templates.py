@@ -7,8 +7,8 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, UploadFile
-from fastapi.responses import FileResponse, Response
-from PIL import Image, ImageDraw
+from fastapi.responses import FileResponse, Response, JSONResponse
+from PIL import Image, ImageDraw, ImageOps
 
 from ..config import settings
 from ..services import template_service, text_renderer
@@ -31,12 +31,25 @@ def templates():
                 "label": t.label,
                 "width": t.width,
                 "height": t.height,
+                "layout_mode": t.layout_mode,
                 "video_area": {"x": t.video_area.x, "y": t.video_area.y, "width": t.video_area.width, "height": t.video_area.height},
                 "preview_url": f"/api/templates/{t.name}/image",
             }
             for t in items
         ]
     }
+
+
+@router.get("/templates/{name}/config")
+def template_config(name: str):
+    """Ambil konfigurasi lengkap untuk membuka template di mode Edit."""
+    tpl = template_service.get_template(name)
+    config_path = settings.template_configs_dir / f"{tpl.name}.json"
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AppError("Konfigurasi template tidak bisa dibaca.", 500, "bad_template_config", detail=str(exc))
+    return JSONResponse(content=data, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/templates/{name}/image")
@@ -46,43 +59,150 @@ def template_image(name: str):
 
 
 @router.get("/templates/{name}/preview")
-def template_preview(name: str):
-    """Preview komposit template: background + video viewport + gaya teks tersimpan.
-
-    Dashboard menggunakan endpoint ini sebelum render agar pilihan template benar-benar
-    menampilkan konfigurasi dari Template Builder, bukan gambar PNG polos.
-    """
+def template_preview(
+    name: str,
+    episode_text: str = "",
+    title_text: str = "",
+    fit: str = "cover",
+    source_width: int = 0,
+    source_height: int = 0,
+    output_width: int = 1080,
+    output_height: int = 1920,
+):
+    """Preview template mengikuti ukuran output dan komposisi renderer final."""
     tpl = template_service.get_template(name)
-    canvas = (tpl.width, tpl.height)
+    output_width = max(2, min(4096, int(output_width or 1080)))
+    output_height = max(2, min(4096, int(output_height or 1920)))
+    canvas = (output_width, output_height)
+    sx, sy = output_width / tpl.width, output_height / tpl.height
+
     with Image.open(tpl.image_path) as im:
-        base = im.convert("RGBA")
-        if base.size != canvas:
-            base = base.resize(canvas, Image.Resampling.LANCZOS)
+        source_image = im.convert("RGBA")
+        base = ImageOps.fit(source_image, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
-    vx, vy, vw, vh = tpl.video_area.as_tuple()
-    video_box = Image.new("RGBA", (vw, vh), (12, 12, 15, 245))
-    draw = ImageDraw.Draw(video_box)
-    draw.text((vw // 2, vh // 2), "VIDEO AREA", fill=(190, 190, 198, 220), anchor="mm")
-    base.alpha_composite(video_box, (vx, vy))
+    def map_area(area):
+        x, y, w, h = area.as_tuple()
+        left, top = round(x * sx), round(y * sy)
+        right, bottom = round((x + w) * sx), round((y + h) * sy)
+        return (left, top, max(2, right-left), max(2, bottom-top))
 
-    ep = text_renderer.render_episode("Contoh teks utama", tpl.episode_style, canvas, tpl.episode_area.as_tuple())
-    title = text_renderer.render_title("Judul video", tpl.title_style, canvas, tpl.title_area.as_tuple())
-    base.alpha_composite(ep.image, (ep.x, ep.y))
-    base.alpha_composite(title.image, (title.x, title.y))
+    vx, vy, vw, vh = map_area(tpl.video_area)
+    episode_area = map_area(tpl.episode_area)
+    title_area = map_area(tpl.title_area)
+    if fit == "contain" and source_width > 0 and source_height > 0:
+        contain_scale = min(vw / source_width, vh / source_height)
+        displayed_w = max(2, round(source_width * contain_scale))
+        displayed_h = max(2, round(source_height * contain_scale))
+        letterbox_left = max(0, (vw - displayed_w) // 2)
+        letterbox_right = max(0, vw - displayed_w - letterbox_left)
+        letterbox_top = max(0, (vh - displayed_h) // 2)
+        letterbox_bottom = max(0, vh - displayed_h - letterbox_top)
+        # Letakkan teks pada ruang letterbox yang benar-benar tersedia.
+        if letterbox_top >= 2 or letterbox_bottom >= 2:
+            if letterbox_top >= letterbox_bottom and letterbox_top >= 2:
+                episode_area = (vx, vy, vw, letterbox_top)
+            elif letterbox_bottom >= 2:
+                title_area = (vx, vy + letterbox_top + displayed_h, vw, letterbox_bottom)
+        elif letterbox_left >= 2 or letterbox_right >= 2:
+            if letterbox_left >= letterbox_right and letterbox_left >= 2:
+                episode_area = (vx, vy, letterbox_left, vh)
+            elif letterbox_right >= 2:
+                title_area = (vx + letterbox_left + displayed_w, vy, letterbox_right, vh)
+
+    episode_style, title_style = tpl.episode_style, tpl.title_style
+    if tpl.layout_mode == "auto" and fit == "contain":
+        from dataclasses import replace
+        episode_style = replace(episode_style, background={**(episode_style.background or {}), "enabled": False})
+        title_style = replace(title_style, background={**(title_style.background or {}), "enabled": False})
+
+    if episode_text.strip():
+        ep = text_renderer.render_episode(episode_text, episode_style, canvas, episode_area)
+        base.alpha_composite(ep.image, (ep.x, ep.y))
+    if title_text.strip():
+        title = text_renderer.render_title(title_text, title_style, canvas, title_area)
+        base.alpha_composite(title.image, (title.x, title.y))
 
     out = io.BytesIO()
     base.convert("RGB").save(out, format="PNG", optimize=False)
     return Response(content=out.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
+@router.get("/templates/{name}/text-preview")
+def template_text_preview(
+    name: str,
+    episode_text: str = "",
+    title_text: str = "",
+    output_width: int = 1080,
+    output_height: int = 1920,
+):
+    """Render only configured text layers on a transparent output-sized canvas."""
+    from dataclasses import replace
+
+    tpl = template_service.get_template(name)
+    output_width = max(2, min(4096, int(output_width or 1080)))
+    output_height = max(2, min(4096, int(output_height or 1920)))
+    canvas = (output_width, output_height)
+    scale = min(output_width / tpl.width, output_height / tpl.height)
+    scaled_w = max(2, int(round(tpl.width * scale)))
+    scaled_h = max(2, int(round(tpl.height * scale)))
+    offset_x = (output_width - scaled_w) // 2
+    offset_y = (output_height - scaled_h) // 2
+
+    def map_area(area):
+        x, y, w, h = area.as_tuple()
+        left = max(0, min(output_width - 2, offset_x + round(x * scale)))
+        top = max(0, min(output_height - 2, offset_y + round(y * scale)))
+        right = max(left + 2, min(output_width, offset_x + round((x + w) * scale)))
+        bottom = max(top + 2, min(output_height, offset_y + round((y + h) * scale)))
+        return (left, top, right - left, bottom - top)
+
+    def scale_style(style):
+        shadow = dict(style.shadow) if isinstance(style.shadow, dict) else style.shadow
+        if shadow:
+            if isinstance(shadow.get("offset"), (list, tuple)):
+                shadow["offset"] = [round(v * scale) for v in shadow["offset"]]
+            if "blur" in shadow:
+                shadow["blur"] = max(0, round(shadow["blur"] * scale))
+        background = dict(style.background or {})
+        for key in ("padding", "radius"):
+            if key in background:
+                background[key] = max(0, round(background[key] * scale))
+        fire = dict(style.fire or {})
+        for key in ("spread", "lift"):
+            if key in fire:
+                fire[key] = max(0, round(fire[key] * scale))
+        return replace(
+            style,
+            font_size=max(1, round(style.font_size * scale)),
+            min_font_size=max(1, round(style.min_font_size * scale)),
+            stroke_width=max(0, round(style.stroke_width * scale)),
+            max_width=round(style.max_width * scale) if style.max_width else None,
+            shadow=shadow, background=background, fire=fire,
+        )
+
+    overlay = Image.new("RGBA", canvas, (0, 0, 0, 0))
+    if episode_text.strip():
+        layer = text_renderer.render_episode(
+            episode_text, scale_style(tpl.episode_style), canvas, map_area(tpl.episode_area)
+        )
+        overlay.alpha_composite(layer.image, (layer.x, layer.y))
+    if title_text.strip():
+        layer = text_renderer.render_title(
+            title_text, scale_style(tpl.title_style), canvas, map_area(tpl.title_area)
+        )
+        overlay.alpha_composite(layer.image, (layer.x, layer.y))
+
+    out = io.BytesIO()
+    overlay.save(out, format="PNG", optimize=False)
+    return Response(content=out.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/templates/preview")
 async def preview_template(
     file: UploadFile = File(...),
     config: str = Form(...),
-    episode_text: str = Form("Contoh teks utama"),
-    title_text: str = Form("Judul video"),
+    episode_text: str = Form(""),
+    title_text: str = Form(""),
 ):
     """Render preview dengan Pillow renderer yang sama dengan video final.
 
@@ -110,25 +230,23 @@ async def preview_template(
     if not (2 <= cw <= 4096 and 2 <= ch <= 4096):
         raise AppError("Ukuran canvas preview harus 2–4096 px.", 400, "bad_template_config")
     if base.size != (cw, ch):
-        base = base.resize((cw, ch), Image.Resampling.LANCZOS)
+        base = ImageOps.fit(base, (cw, ch), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
     video_area = template_service.Area.from_dict(data.get("video_area") or {}, "video_area", cw, ch)
     episode_area = template_service.Area.from_dict(data.get("episode_area") or {}, "episode_area", cw, ch)
     title_area = template_service.Area.from_dict(data.get("title_area") or {}, "title_area", cw, ch)
 
-    # Placeholder video mengikuti persis koordinat viewport video pada template.
-    vx, vy, vw, vh = video_area.as_tuple()
-    placeholder = Image.new("RGBA", (vw, vh), (13, 13, 16, 255))
-    pd = ImageDraw.Draw(placeholder)
-    pd.text((vw // 2, vh // 2), "VIDEO PREVIEW", fill=(155, 155, 165, 220), anchor="mm")
-    base.alpha_composite(placeholder, (vx, vy))
+    # Tidak menambahkan kotak hitam placeholder. Gambar template tetap utuh
+    # sebagai background; saat render, background blur akan diisi dari video sumber.
 
     episode_style = text_renderer.TextStyle.from_dict(data.get("episode"))
     title_style = text_renderer.TextStyle.from_dict(data.get("title"))
-    ep_layer = text_renderer.render_episode(episode_text or "Contoh teks utama", episode_style, (cw, ch), episode_area.as_tuple())
-    title_layer = text_renderer.render_title(title_text or "Judul video", title_style, (cw, ch), title_area.as_tuple())
-    base.alpha_composite(ep_layer.image, (ep_layer.x, ep_layer.y))
-    base.alpha_composite(title_layer.image, (title_layer.x, title_layer.y))
+    if episode_text.strip():
+        ep_layer = text_renderer.render_episode(episode_text, episode_style, (cw, ch), episode_area.as_tuple())
+        base.alpha_composite(ep_layer.image, (ep_layer.x, ep_layer.y))
+    if title_text.strip():
+        title_layer = text_renderer.render_title(title_text, title_style, (cw, ch), title_area.as_tuple())
+        base.alpha_composite(title_layer.image, (title_layer.x, title_layer.y))
 
     out = io.BytesIO()
     base.convert("RGB").save(out, format="PNG", optimize=False)
@@ -195,7 +313,10 @@ async def create_template(file: UploadFile = File(...), config: str = Form(...),
     tmp_img = img_path.with_suffix(".tmp.png")
     tmp_cfg = cfg_path.with_suffix(".tmp.json")
     try:
-        image.save(tmp_img, format="PNG")
+        normalized_image = ImageOps.fit(
+            image, (canvas_w, canvas_h), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
+        )
+        normalized_image.save(tmp_img, format="PNG")
         tmp_cfg.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         tmp_img.replace(img_path)
         tmp_cfg.replace(cfg_path)
