@@ -36,8 +36,8 @@ export const generateClip = (payload) =>
   });
 
 export const templateImageUrl = (name) => `${BASE}/api/templates/${name}/image`;
-export const templatePreviewUrl = (name, episodeText = "", titleText = "", fit = "cover") => {
-  const params = new URLSearchParams({ v: name, episode_text: episodeText, title_text: titleText, fit });
+export const templatePreviewUrl = (name, episodeText = "", titleText = "", fit = "cover", sourceWidth = 0, sourceHeight = 0) => {
+  const params = new URLSearchParams({ v: name, episode_text: episodeText, title_text: titleText, fit, source_width: sourceWidth, source_height: sourceHeight });
   return `${BASE}/api/templates/${encodeURIComponent(name)}/preview?${params.toString()}`;
 };
 export const downloadUrl = (jobId) => `${BASE}/api/download/${jobId}`;
