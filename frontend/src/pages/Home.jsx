@@ -175,8 +175,7 @@ export default function Home({ onOpenBuilder }) {
   const errors = useMemo(() => {
     const e = {};
     if (mode === "clip") {
-      if (!form.episode.trim()) e.episode = "Teks utama wajib diisi.";
-      else if (form.episode.trim().length > 120) e.episode = "Teks utama maksimal 120 karakter.";
+      if (form.episode.trim().length > 120) e.episode = "Teks utama maksimal 120 karakter.";
       const s = parseTimecode(form.start);
       const en = parseTimecode(form.end);
       const dur = upload.info?.duration;
@@ -186,7 +185,6 @@ export default function Home({ onOpenBuilder }) {
       else if (en === null) e.end = "Format HH:MM:SS, contoh 00:04:18.";
       else if (s !== null && en <= s) e.end = "End time harus lebih besar dari Start time.";
       else if (dur && en > dur + 0.001) e.end = "End time tidak boleh melebihi durasi video.";
-      if (!form.title.trim()) e.title = "Title wajib diisi.";
     }
     const wantsReplace = mode === "audio_only" || replaceAudio;
     if (wantsReplace) {
