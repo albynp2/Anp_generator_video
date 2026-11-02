@@ -50,6 +50,7 @@ def template_preview(
     name: str,
     episode_text: str = "Contoh teks utama",
     title_text: str = "Judul video",
+    fit: str = "cover",
 ):
     """Preview komposit template dengan teks aktual dari form dashboard.
 
@@ -68,8 +69,17 @@ def template_preview(
     draw.text((vw // 2, vh // 2), "VIDEO AREA", fill=(190, 190, 198, 220), anchor="mm")
     base.alpha_composite(video_box, (vx, vy))
 
-    ep = text_renderer.render_episode(episode_text or "Contoh teks utama", tpl.episode_style, canvas, tpl.episode_area.as_tuple())
-    title = text_renderer.render_title(title_text or "Judul video", tpl.title_style, canvas, tpl.title_area.as_tuple())
+    episode_area = tpl.episode_area.as_tuple()
+    title_area = tpl.title_area.as_tuple()
+    if (fit or "cover").strip().lower() == "contain" and tpl.name == "default":
+        top_h = max(2, vy)
+        bottom_y = min(tpl.height - 2, vy + vh)
+        bottom_h = max(2, tpl.height - bottom_y)
+        episode_area = (episode_area[0], 0, episode_area[2], top_h)
+        title_area = (title_area[0], bottom_y, title_area[2], bottom_h)
+
+    ep = text_renderer.render_episode(episode_text or "Contoh teks utama", tpl.episode_style, canvas, episode_area)
+    title = text_renderer.render_title(title_text or "Judul video", tpl.title_style, canvas, title_area)
     base.alpha_composite(ep.image, (ep.x, ep.y))
     base.alpha_composite(title.image, (title.x, title.y))
 
