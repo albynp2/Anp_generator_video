@@ -186,7 +186,7 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
           setBackgroundPadding(bg.padding || 0); setBackgroundRadius(bg.radius || 0);
           setActive("video");
         } else {
-          setAreas(autoAreasFor(w, h)); setMode("auto"); setName(""); setLabel(""); setEpFormat("");
+          setAreas(autoAreasFor(w, h)); setMode("auto"); setName(""); setLabel("");
         }
         setJsonOut(""); setHint(""); setSaveMsg(null);
         requestAnimationFrame(draw);
