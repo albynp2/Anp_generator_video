@@ -30,6 +30,9 @@ desktop.ini
 # Logs
 *.log
 
+
+
+
 # Generated media
 output/
 outputs/

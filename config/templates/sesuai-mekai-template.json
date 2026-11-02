@@ -1,0 +1,88 @@
+{
+  "name": "sesuai-mekai-template",
+  "label": "sesuai_template",
+  "image": "sesuai-mekai-template.png",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "layout_mode": "auto",
+  "video_area": {
+    "x": 0,
+    "y": 538,
+    "width": 1080,
+    "height": 845
+  },
+  "episode_area": {
+    "x": 238,
+    "y": 384,
+    "width": 605,
+    "height": 154
+  },
+  "title_area": {
+    "x": 259,
+    "y": 1382,
+    "width": 562,
+    "height": 154
+  },
+  "episode": {
+    "font": "Almendra-Bold.ttf",
+    "font_fallbacks": [
+      "Sansita-ExtraBoldItalic.ttf",
+      "Lora-Italic-Variable.ttf"
+    ],
+    "style_type": "plain",
+    "color": "#000000",
+    "stroke_color": "#171717",
+    "stroke_width": 0,
+    "shadow": null,
+    "background": {
+      "enabled": true,
+      "color": "#ff0000",
+      "opacity": 1,
+      "padding": 0,
+      "radius": 0
+    },
+    "fire": {
+      "enabled": false,
+      "spread": 30,
+      "lift": 8,
+      "sparks": 30,
+      "brightness": 0.68
+    },
+    "text_format": "contoh teks utama",
+    "font_size": 60,
+    "min_font_size": 36
+  },
+  "title": {
+    "font": "Almendra-Bold.ttf",
+    "font_fallbacks": [
+      "Sansita-ExtraBoldItalic.ttf",
+      "Lora-Italic-Variable.ttf"
+    ],
+    "style_type": "plain",
+    "color": "#000000",
+    "stroke_color": "#171717",
+    "stroke_width": 0,
+    "shadow": null,
+    "background": {
+      "enabled": true,
+      "color": "#ff0000",
+      "opacity": 1,
+      "padding": 0,
+      "radius": 0
+    },
+    "fire": {
+      "enabled": false,
+      "spread": 30,
+      "lift": 8,
+      "sparks": 30,
+      "brightness": 0.68
+    },
+    "font_size": 60,
+    "min_font_size": 39,
+    "max_lines": 3,
+    "max_width": 534,
+    "line_spacing": 1.18
+  }
+}

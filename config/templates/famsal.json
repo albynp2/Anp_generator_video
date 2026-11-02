@@ -1,0 +1,102 @@
+{
+  "name": "famsal",
+  "label": "FAMSAL",
+  "image": "famsal.png",
+  "canvas": {
+    "width": 1254,
+    "height": 1254
+  },
+  "layout_mode": "auto",
+  "video_area": {
+    "x": 0,
+    "y": 188,
+    "width": 1254,
+    "height": 878
+  },
+  "episode_area": {
+    "x": 63,
+    "y": 19,
+    "width": 1129,
+    "height": 150
+  },
+  "title_area": {
+    "x": 63,
+    "y": 1085,
+    "width": 1129,
+    "height": 150
+  },
+  "episode": {
+    "font": "Sansita-ExtraBold.ttf",
+    "font_fallbacks": [
+      "Amaranth-BoldItalic.ttf"
+    ],
+    "style_type": "shadow",
+    "color": "#ffffff",
+    "stroke_color": "#171717",
+    "stroke_width": 0,
+    "shadow": {
+      "offset": [
+        2,
+        3
+      ],
+      "blur": 0,
+      "color": "#000000",
+      "opacity": 0.75
+    },
+    "background": {
+      "enabled": true,
+      "color": "#000000",
+      "opacity": 0.8,
+      "padding": 0,
+      "radius": 0
+    },
+    "fire": {
+      "enabled": false,
+      "spread": 30,
+      "lift": 8,
+      "sparks": 30,``
+      "brightness": 0.68
+    },
+    "text_format": "teks contoh",
+    "font_size": 40,
+    "min_font_size": 24
+  },
+  "title": {
+    "font": "Sansita-ExtraBold.ttf",
+    "font_fallbacks": [
+      "Amaranth-BoldItalic.ttf"
+    ],
+    "style_type": "shadow",
+    "color": "#ffffff",
+    "stroke_color": "#171717",
+    "stroke_width": 0,
+    "shadow": {
+      "offset": [
+        2,
+        3
+      ],
+      "blur": 0,
+      "color": "#000000",
+      "opacity": 0.75
+    },
+    "background": {
+      "enabled": true,
+      "color": "#000000",
+      "opacity": 0.8,
+      "padding": 0,
+      "radius": 0
+    },
+    "fire": {
+      "enabled": false,
+      "spread": 30,
+      "lift": 8,
+      "sparks": 30,
+      "brightness": 0.68
+    },
+    "font_size": 40,
+    "min_font_size": 26,
+    "max_lines": 3,
+    "max_width": 1073,
+    "line_spacing": 1.18
+  }
+}
