@@ -4,8 +4,8 @@ import { saveTemplate, previewTemplate, getTemplateConfig, getTemplateImageFile 
 
 const AREA_DEFS = [
   { key: "video", label: "Video Area", color: "#ff6a00", desc: "Area untuk menempatkan video" },
-  { key: "episode", label: "Text Area", color: "#22c55e", desc: "Area teks utama / caption" },
-  { key: "title", label: "Title Area", color: "#3b82f6", desc: "Area judul video" },
+  { key: "episode", label: "Teks 1", color: "#22c55e", desc: "Mengatur ukuran dan posisi teks pertama" },
+  { key: "title", label: "Teks 2", color: "#3b82f6", desc: "Mengatur ukuran dan posisi teks kedua" },
 ];
 const FONT_THEMES = {
   cinematic: { label: "Cinematic", font: "Almendra-Bold.ttf", fallback: ["Sansita-ExtraBoldItalic.ttf", "Lora-Italic-Variable.ttf"] },
@@ -51,7 +51,6 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
   const [active, setActive] = useState("video");
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
-  const [epFormat, setEpFormat] = useState("");
   const [epSize, setEpSize] = useState(20), [tiSize, setTiSize] = useState(20);
   const [fontTheme, setFontTheme] = useState("cinematic"), [textType, setTextType] = useState("shadow");
   const [textColor, setTextColor] = useState("#ffffff"), [strokeColor, setStrokeColor] = useState("#171717");
@@ -98,8 +97,8 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
       ctx.fillText(shown, x + w / 2, y + h / 2, maxW); ctx.restore();
     };
     // Layer 2: contoh teks berada di atas gambar background.
-    drawLabel("Contoh teks utama", currentAreas.episode, epSize, textColor, true);
-    drawLabel("Judul video", currentAreas.title, tiSize, textColor, true);
+    drawLabel("Teks 1", currentAreas.episode, epSize, textColor, true);
+    drawLabel("Teks 2", currentAreas.title, tiSize, textColor, true);
 
     // Layer 1: area video berupa bidang hitam saja; tidak menutupi area background lain.
     const video = currentAreas.video;
@@ -130,7 +129,7 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
     const timer = setTimeout(async () => {
       try {
         const { config } = buildConfig();
-        const url = await previewTemplate(config, fileObjRef.current, "Contoh teks utama", "Judul video", controller.signal);
+        const url = await previewTemplate(config, fileObjRef.current, "Teks 1", "Teks 2", controller.signal);
         if (cancelled) { URL.revokeObjectURL(url); return; }
         const image = new Image();
         image.onload = () => {
@@ -174,7 +173,6 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
           setAreas({ video: toArea(loadedConfig.video_area), episode: toArea(loadedConfig.episode_area), title: toArea(loadedConfig.title_area) });
           setMode(loadedConfig.layout_mode === "manual" ? "manual" : "auto");
           setName(loadedConfig.name || ""); setLabel(loadedConfig.label || "");
-          setEpFormat(loadedConfig.episode?.text_format || "{text}");
           const font = loadedConfig.episode?.font || "";
           const theme = Object.entries(FONT_THEMES).find(([, v]) => v.font === font)?.[0] || "cinematic";
           setFontTheme(theme); setTextType(loadedConfig.episode?.style_type || "shadow");
@@ -248,7 +246,7 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
     };
     return { slug, config:{ name:slug, label:label.trim() || slug, image:`${slug}.png`, canvas:{width:w,height:h}, layout_mode:mode,
       video_area:safeAreas.video, episode_area:safeAreas.episode, title_area:safeAreas.title,
-      episode:{...common,text_format:epFormat.trim() || "{text}",font_size:Number(epSize)||56,min_font_size:Math.max(12,Math.round((Number(epSize)||56)*.6))},
+      episode:{...common,font_size:Number(epSize)||56,min_font_size:Math.max(12,Math.round((Number(epSize)||56)*.6))},
       title:{...common,font_size:Number(tiSize)||62,min_font_size:Math.max(12,Math.round((Number(tiSize)||62)*.65)),max_lines:3,max_width:Math.round(safeAreas.title.width*.95),line_spacing:1.18}
     }};
   };
@@ -273,11 +271,11 @@ export default function TemplateBuilder({ onBack, initialTemplateName = "" }) {
       </section>
       <aside className="space-y-5">
         <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">2. Area video & teks</p><label className="label">Mode Template</label><select className="input" value={mode} onChange={e=>{const next=e.target.value;setMode(next);if(next==="auto"){setFontTheme("cinematic");setTextType("shadow");setEpSize(20);setTiSize(20);setTextColor("#ffffff");setStrokeColor("#171717");setStrokeWidth(2);setShadowBlur(0);setShowTextBackground(true);setBackgroundColor("#333333");setBackgroundOpacity(10);setBackgroundPadding(0);setBackgroundRadius(0);}}}><option value="auto">Auto Template</option><option value="manual">Manual Template</option></select>
-          {mode === "auto" ? <p className="text-xs text-stone-400">Posisi Video Area, Text Area, dan Title Area dihitung otomatis dari resolusi gambar. Pengaturan area manual disembunyikan.</p> : <><p className="text-xs text-stone-400">Pilih area, lalu tarik kotak pada gambar untuk mengatur posisi dan ukuran.</p><div className="space-y-2">{AREA_DEFS.map(({key,label:l,color,desc})=><button key={key} onClick={()=>setActive(key)} className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm ${active===key?"border-ember-500 bg-ember-500/10":"border-ink-600 bg-ink-900"}`}><span className="h-3 w-3 rounded-sm" style={{background:color}}/><span className="flex-1"><b className="block text-stone-100">{l}</b><small className="text-stone-500">{currentAreas[key]?`${currentAreas[key].x}, ${currentAreas[key].y} · ${currentAreas[key].width}×${currentAreas[key].height}`:desc}</small></span></button>)}</div></>}
+          {mode === "auto" ? <p className="text-xs text-stone-400">Posisi Video Area, Teks 1, dan Teks 2 dihitung otomatis dari resolusi gambar. Pengaturan area manual disembunyikan.</p> : <><p className="text-xs text-stone-400">Pilih area, lalu tarik kotak pada gambar untuk mengatur posisi dan ukuran.</p><div className="space-y-2">{AREA_DEFS.map(({key,label:l,color,desc})=><button key={key} onClick={()=>setActive(key)} className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm ${active===key?"border-ember-500 bg-ember-500/10":"border-ink-600 bg-ink-900"}`}><span className="h-3 w-3 rounded-sm" style={{background:color}}/><span className="flex-1"><b className="block text-stone-100">{l}</b><small className="text-stone-500">{currentAreas[key]?`${currentAreas[key].x}, ${currentAreas[key].y} · ${currentAreas[key].width}×${currentAreas[key].height}`:desc}</small></span></button>)}</div></>}
         </div>
-        <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">3. Info Template</p><div><label className="label">Nama file (a-z, 0-9, - _)</label><input className="input" value={name} placeholder="nama-template" onChange={e=>setName(e.target.value)}/></div><div><label className="label">Label di dropdown</label><input className="input" value={label} placeholder="Nama template" onChange={e=>setLabel(e.target.value)}/></div><div><label className="label">Format teks utama</label><input className="input" value={epFormat} placeholder="Contoh: {text}" onChange={e=>setEpFormat(e.target.value)}/><p className="text-[11px] text-stone-500">Gunakan {'{text}'} untuk teks yang diinput pada dashboard, atau {'{number}'} jika sumbernya nomor.</p></div></div>
+        <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">3. Info Template</p><div><label className="label">Nama file (a-z, 0-9, - _)</label><input className="input" value={name} placeholder="nama-template" onChange={e=>setName(e.target.value)}/></div><div><label className="label">Label di dropdown</label><input className="input" value={label} placeholder="Nama template" onChange={e=>setLabel(e.target.value)}/></div></div>
         <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">4. Gaya Teks</p><div><label className="label">Font Theme</label><select className="input" value={fontTheme} onChange={e=>setFontTheme(e.target.value)}>{Object.entries(FONT_THEMES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div><div><label className="label">Tipe gaya teks</label><select className="input" value={textType} onChange={e=>setTextType(e.target.value)}>{STYLE_TYPES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
-          <div className="grid grid-cols-2 gap-3"><div><label className="label">Ukuran teks utama</label><input type="number" min="12" max="300" className="input" value={epSize} onChange={e=>setEpSize(e.target.value)}/></div><div><label className="label">Ukuran title</label><input type="number" min="12" max="300" className="input" value={tiSize} onChange={e=>setTiSize(e.target.value)}/></div><div><label className="label">Warna teks</label><input type="color" className="input h-11 p-1" value={textColor} onChange={e=>setTextColor(e.target.value)}/></div><div><label className="label">Warna outline</label><input type="color" className="input h-11 p-1" value={strokeColor} onChange={e=>setStrokeColor(e.target.value)}/></div><div><label className="label">Ketebalan outline</label><input type="number" min="0" max="12" className="input" value={strokeWidth} onChange={e=>setStrokeWidth(e.target.value)}/></div><div><label className="label">Shadow / glow blur</label><input type="number" min="0" max="40" className="input" value={shadowBlur} onChange={e=>setShadowBlur(e.target.value)}/></div></div>
+          <div className="grid grid-cols-2 gap-3"><div><label className="label">Ukuran Teks 1</label><input type="number" min="12" max="300" className="input" value={epSize} onChange={e=>setEpSize(e.target.value)}/></div><div><label className="label">Ukuran Teks 2</label><input type="number" min="12" max="300" className="input" value={tiSize} onChange={e=>setTiSize(e.target.value)}/></div><div><label className="label">Warna teks</label><input type="color" className="input h-11 p-1" value={textColor} onChange={e=>setTextColor(e.target.value)}/></div><div><label className="label">Warna outline</label><input type="color" className="input h-11 p-1" value={strokeColor} onChange={e=>setStrokeColor(e.target.value)}/></div><div><label className="label">Ketebalan outline</label><input type="number" min="0" max="12" className="input" value={strokeWidth} onChange={e=>setStrokeWidth(e.target.value)}/></div><div><label className="label">Shadow / glow blur</label><input type="number" min="0" max="40" className="input" value={shadowBlur} onChange={e=>setShadowBlur(e.target.value)}/></div></div>
           <label className="flex items-center gap-2 text-sm text-stone-200"><input type="checkbox" checked={showTextBackground} onChange={e=>setShowTextBackground(e.target.checked)}/> Aktifkan background teks</label><div className="grid grid-cols-2 gap-3"><div><label className="label">Warna background</label><input type="color" className="input h-11 p-1" value={backgroundColor} onChange={e=>setBackgroundColor(e.target.value)}/></div><div><label className="label">Transparansi (%)</label><input type="number" min="0" max="100" className="input" value={backgroundOpacity} onChange={e=>setBackgroundOpacity(e.target.value)}/></div><div><label className="label">Padding background</label><input type="number" min="0" max="100" className="input" value={backgroundPadding} onChange={e=>setBackgroundPadding(e.target.value)}/></div><div><label className="label">Radius sudut</label><input type="number" min="0" max="100" className="input" value={backgroundRadius} onChange={e=>setBackgroundRadius(e.target.value)}/></div></div><p className="text-[11px] text-stone-500">Semua perubahan gaya, ukuran, font, dan background langsung terlihat di preview gambar.</p>
         </div>
         <div className="panel space-y-3 p-4 sm:p-5"><p className="label mb-0">5. Simpan Template</p>{initialTemplateName ? <><button className="btn-primary w-full" onClick={()=>saveToServer(true)} disabled={!canGenerate||saving}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}{saving?"Menyimpan…":"Simpan Perubahan"}</button><button className="btn-ghost w-full" onClick={()=>saveToServer(false)} disabled={!canGenerate||saving}><Save className="h-4 w-4"/>Simpan Sebagai Template Baru</button></> : <button className="btn-primary w-full" onClick={()=>saveToServer(false)} disabled={!canGenerate||saving}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}{saving?"Menyimpan…":"Simpan ke Server"}</button>}<button className="btn-ghost w-full" onClick={downloadOnly} disabled={!canGenerate}><Download className="h-4 w-4"/>Download JSON</button>
