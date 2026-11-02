@@ -257,24 +257,19 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
     job_dir.mkdir(parents=True, exist_ok=True)
     tpl = clip.template
     canvas = (clip.output_width, clip.output_height)
-    # Fit seluruh desain template ke output sambil mempertahankan rasio aslinya.
-    # Jika rasio output berbeda, ruang tersisa menjadi letterbox gelap, bukan desain yang gepeng.
-    scale = min(canvas[0] / tpl.width, canvas[1] / tpl.height)
-    scaled_w = max(2, int(round(tpl.width * scale)))
-    scaled_h = max(2, int(round(tpl.height * scale)))
-    offset_x = (canvas[0] - scaled_w) // 2
-    offset_y = (canvas[1] - scaled_h) // 2
-
-    def map_area(area):
-        x, y, w, h = area.as_tuple()
-        # Map both edges (not width/height independently) then clamp to the
-        # final output canvas. This avoids 1 px overflow caused by rounding
-        # when scaling a template to portrait/landscape/square presets.
-        left = max(0, min(canvas[0] - 2, offset_x + round(x * scale)))
-        top = max(0, min(canvas[1] - 2, offset_y + round(y * scale)))
-        right = max(left + 2, min(canvas[0], offset_x + round((x + w) * scale)))
-        bottom = max(top + 2, min(canvas[1], offset_y + round((y + h) * scale)))
-        return (left, top, right - left, bottom - top)
+    # Semua layer memakai koordinat JSON Template Builder dan satu transform Contain.
+    scale, scaled_w, scaled_h, offset_x, offset_y = template_service.contain_geometry(
+        tpl.width, tpl.height, canvas[0], canvas[1]
+    )
+    video_area = template_service.map_area_contain(
+        tpl.video_area, tpl.width, tpl.height, canvas[0], canvas[1]
+    )
+    episode_area = template_service.map_area_contain(
+        tpl.episode_area, tpl.width, tpl.height, canvas[0], canvas[1]
+    )
+    title_area = template_service.map_area_contain(
+        tpl.title_area, tpl.width, tpl.height, canvas[0], canvas[1]
+    )
 
     def scale_style(style):
         shadow = dict(style.shadow) if isinstance(style.shadow, dict) else style.shadow
@@ -291,48 +286,26 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
         for key in ("spread", "lift"):
             if key in fire:
                 fire[key] = max(0, round(fire[key] * scale))
-        return replace(style,
+        return replace(
+            style,
             font_size=max(1, round(style.font_size * scale)),
             min_font_size=max(1, round(style.min_font_size * scale)),
             stroke_width=max(0, round(style.stroke_width * scale)),
             max_width=round(style.max_width * scale) if style.max_width else None,
-            shadow=shadow, background=background, fire=fire)
+            shadow=shadow, background=background, fire=fire,
+        )
 
-    # Auto template fills the output canvas; its areas scale independently
-    # with the selected output aspect ratio so the background reaches every edge.
-    if tpl.layout_mode == "auto":
-        sx, sy = canvas[0] / tpl.width, canvas[1] / tpl.height
-        def map_auto(area):
-            x, y, w, h = area.as_tuple()
-            left, top = round(x * sx), round(y * sy)
-            right, bottom = round((x + w) * sx), round((y + h) * sy)
-            return (left, top, max(2, right - left), max(2, bottom - top))
-        video_area = map_auto(tpl.video_area)
-        episode_area = map_auto(tpl.episode_area)
-        title_area = map_auto(tpl.title_area)
-    elif tpl.name == "default" and canvas[1] >= canvas[0]:
-        video_area = (0, round(canvas[1] * 0.15), canvas[0], round(canvas[1] * 0.70))
-        episode_area = map_area(tpl.episode_area)
-        title_area = map_area(tpl.title_area)
-    else:
-        video_area = map_area(tpl.video_area)
-        episode_area = map_area(tpl.episode_area)
-        title_area = map_area(tpl.title_area)
-
-    # Posisi teks selalu mengikuti area yang disimpan di Template Builder.
-    # Contain hanya mengatur video di dalam Video Area, bukan memindahkan teks.
-
+    # Jangan mengubah/mematikan style Auto: seluruh format mengikuti JSON Builder.
     episode_style = scale_style(tpl.episode_style)
     title_style = scale_style(tpl.title_style)
-    if tpl.layout_mode == "auto" and clip.fit == "contain":
-        episode_style = replace(episode_style, background={**(episode_style.background or {}), "enabled": False})
-        title_style = replace(title_style, background={**(title_style.background or {}), "enabled": False})
 
     progress(2, "Menyiapkan template")
     template_png = job_dir / "template.png"
     with Image.open(tpl.image_path) as im:
         im = im.convert("RGBA")
-        canvas_image = ImageOps.fit(im, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+        fitted = im.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
+        canvas_image = Image.new("RGBA", canvas, (0, 0, 0, 255))
+        canvas_image.alpha_composite(fitted, (offset_x, offset_y))
         canvas_image.save(template_png)
 
     progress(4, "Membuat teks utama")
