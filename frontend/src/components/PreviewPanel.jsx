@@ -89,6 +89,7 @@ export default function PreviewPanel({
         ) : (
           <>
             {template && template !== "default" && <img src={templatePreviewUrl(template, "", "", "contain", sourceSize.width, sourceSize.height, outputWidth, outputHeight)} alt="Preview template" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {template && template !== "default" && <div aria-hidden="true" className="absolute bg-black" style={areaStyle} />}
             {thumbnailUrl && template === "default" && (
               <img src={thumbnailUrl} alt="Background blur preview" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-55 blur-xl" />
             )}
