@@ -10,6 +10,7 @@ export default function PreviewPanel({
 }) {
   const [deleting, setDeleting] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [sourceSize, setSourceSize] = useState({ width: 0, height: 0 });
   const status = job?.status;
   const busy = status === "queued" || status === "processing";
   const done = status === "completed";
@@ -25,6 +26,7 @@ export default function PreviewPanel({
   useEffect(() => {
     if (!sourcePreviewUrl) {
       setThumbnailUrl("");
+      setSourceSize({ width: 0, height: 0 });
       return undefined;
     }
     let active = true;
@@ -48,6 +50,7 @@ export default function PreviewPanel({
       }, "image/jpeg", 0.92);
     };
     video.addEventListener("loadedmetadata", () => {
+      if (active) setSourceSize({ width: video.videoWidth, height: video.videoHeight });
       const target = Math.max(0, Number(startSeconds) || 0);
       if (target > 0 && target < (video.duration || target + 1)) video.currentTime = target;
       else capture();
@@ -85,7 +88,7 @@ export default function PreviewPanel({
           <video key={job.job_id} className="h-full w-full bg-black object-contain" src={previewUrl(job.job_id)} controls playsInline />
         ) : (
           <>
-            {template && <img src={templatePreviewUrl(template, episodeText, titleText, fit)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
+            {template && <img src={templatePreviewUrl(template, episodeText, titleText, fit, sourceSize.width, sourceSize.height)} alt="Preview template dan teks" className={`absolute inset-0 h-full w-full object-fill ${busy ? "opacity-40 blur-[1px]" : "opacity-100"}`} />}
             {thumbnailUrl && template && (
               <img
                 src={thumbnailUrl}
