@@ -349,12 +349,7 @@ def render(job_id: str, clip: ClipSpec, progress: ProgressCb) -> dict:
     template_png = job_dir / "template.png"
     with Image.open(tpl.image_path) as im:
         im = im.convert("RGBA")
-        if tpl.layout_mode == "auto":
-            canvas_image = ImageOps.fit(im, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
-        else:
-            im = im.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
-            canvas_image = Image.new("RGBA", canvas, (0, 0, 0, 255))
-            canvas_image.alpha_composite(im, (offset_x, offset_y))
+        canvas_image = ImageOps.fit(im, canvas, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
         canvas_image.save(template_png)
 
     progress(4, "Membuat teks utama")
